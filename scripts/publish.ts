@@ -28,6 +28,7 @@ try {
     events: JSON.parse(readFileSync(raw('events.json'), 'utf8')),
     content: JSON.parse(readFileSync(raw('content.json'), 'utf8')),
     guestsCsv: readFileSync(raw('guests.csv'), 'utf8'),
+    onWarn: (m) => console.warn(`WARNING: ${m}`),
   });
   writeFileSync('data/published.json', JSON.stringify(data, null, 2));
   console.log(`Published ${data.events.length} events and ${data.guests.length} guests -> data/published.json`);

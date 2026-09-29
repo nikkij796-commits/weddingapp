@@ -9,7 +9,7 @@
     "test": "vitest run",
     "e2e": "playwright test",
     "scan:bundle": "node scripts/scan-bundle.mjs",
-    "publish:data": "node scripts/publish.mjs"
+    "publish:data": "tsx scripts/publish.ts"
   },
   "devDependencies": {
     "@playwright/test": "^1.49.0",

@@ -20,6 +20,16 @@ describe('normalizeName', () => {
   it('returns empty for junk', () => expect(normalizeName(' !!! ')).toBe(''));
 });
 
+describe('titles', () => {
+  it.each([['Dr. Neel Jain', 'neel jain'], ['Mrs. Kamna Jain', 'kamna jain'], ['MR Soham Shah', 'soham shah'], ['Ms. Nikita Jain', 'nikita jain']])(
+    '%s -> %s', (raw, out) => expect(normalizeName(raw)).toBe(out));
+  it('keeps a lone title-like word', () => expect(normalizeName('Dr')).toBe('dr'));
+  it('matches with or without the title', () => {
+    const gs = [{ id: 'a', name: 'Dr. Neel Jain', aliases: [], householdId: 'h', invited: [] }];
+    for (const q of ['Neel Jain', 'dr neel jain', 'Dr. Neel Jain', 'Mr Neel Jain']) expect(matchGuest(gs, q).kind).toBe('match');
+  });
+});
+
 describe('levenshtein', () => {
   it.each([['', '', 0], ['a', '', 1], ['kitten', 'sitting', 3], ['same', 'same', 0], ['ab', 'ba', 2]])(
     '%s vs %s = %i',

@@ -1,5 +1,7 @@
 import type { Guest } from './types';
 
+const TITLES = new Set(['mr', 'mrs', 'ms', 'miss', 'mx', 'dr', 'prof', 'late', 'shri', 'smt']);
+
 export function normalizeName(raw: string): string {
   let s = raw.trim();
   // "Last, First" -> "First Last"
@@ -7,15 +9,23 @@ export function normalizeName(raw: string): string {
     const [last, ...rest] = s.split(',');
     s = `${rest.join(' ')} ${last}`;
   }
-  return s
+  const out = s
     .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
+    .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
     .replace(/[’'`]/g, '')
     .replace(/[^a-z0-9\s-]/g, ' ')
     .replace(/-/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
+  return stripTitles(out);
+}
+
+/** "Dr. Neel Jain" and "Neel Jain" are the same person to a guest typing their name. */
+function stripTitles(name: string): string {
+  const tokens = name.split(' ');
+  while (tokens.length > 1 && TITLES.has(tokens[0])) tokens.shift();
+  return tokens.join(' ');
 }
 
 export function levenshtein(a: string, b: string): number {
