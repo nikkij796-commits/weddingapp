@@ -23,8 +23,8 @@ test.describe('gate', () => {
 
   test('wrong code and unknown name show the same generic error', async ({ page }) => {
     await unlock(page, 'Alex Rivera', 'WRONG');
-    const a = await page.locator('#gate-error').innerText();
     await expect(page.locator('#gate-error')).toContainText("couldn't find that name and code");
+    const a = await page.locator('#gate-error').innerText();
     await page.reload();
     await unlock(page, 'Nobody Here');
     await expect(page.locator('#gate-error')).toContainText("couldn't find that name and code");
@@ -101,6 +101,7 @@ test.describe('personalized experience', () => {
 
   test('session persists across reload and sign out clears it', async ({ page }) => {
     await unlock(page, 'Sam Chen');
+    await expect(page.getByText('Welcome, Sam')).toBeVisible(); // session is saved once unlock completes
     await page.reload();
     await expect(page.getByText('Welcome, Sam')).toBeVisible();
     await page.getByRole('button', { name: 'Not you? Sign out' }).click();
@@ -112,12 +113,14 @@ test.describe('personalized experience', () => {
 test.describe('quality', () => {
   test('no horizontal scroll', async ({ page }) => {
     await unlock(page, 'Alex Rivera');
+    await expect(page.locator('.hero')).toBeVisible();
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(overflow).toBeLessThanOrEqual(0);
   });
 
   test('tap targets are at least 40px tall', async ({ page }) => {
     await unlock(page, 'Alex Rivera');
+    await expect(page.locator('.hero')).toBeVisible();
     const small = await page.$$eval('.chip, .tabs button', (els) => els.filter((e) => e.getBoundingClientRect().height < 40).length);
     expect(small).toBe(0);
   });
