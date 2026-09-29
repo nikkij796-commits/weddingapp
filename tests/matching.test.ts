@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { levenshtein, matchGuest, normalizeName } from '../src/core/matching';
+import { firstName, levenshtein, matchGuest, normalizeName } from '../src/core/matching';
 import { sample } from './fixtures';
 
 const guests = sample().guests;
@@ -58,4 +58,9 @@ describe('matchGuest', () => {
   });
   it('does not match wildly different names', () => expect(id('Alexandra Riverton')).toBe('none'));
   it('prefers the closest fuzzy candidate', () => expect(id('Jordan Rivera')).toBe('g2'));
+});
+
+describe('firstName for greetings', () => {
+  it.each([['Dr. Neel Jain', 'Neel'], ['Mrs. Kamna Jain', 'Kamna'], ['Ms. Nikita Jain', 'Nikita'], ['Mr Soham Shah', 'Soham'], ['dr. anil jain', 'anil'], ['Sam Chen', 'Sam'], ['  María José García', 'María'], ['Dr.', 'Dr.'], ['Mongilalji', 'Mongilalji']])(
+    '%s -> %s', (full, first) => expect(firstName(full)).toBe(first));
 });

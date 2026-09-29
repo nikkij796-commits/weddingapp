@@ -28,6 +28,13 @@ function stripTitles(name: string): string {
   return tokens.join(' ');
 }
 
+/** First name for greetings: "Dr. Neel Jain" -> "Neel". */
+export function firstName(full: string): string {
+  const tokens = full.trim().split(/\s+/);
+  while (tokens.length > 1 && TITLES.has(tokens[0].toLowerCase().replace(/\./g, ''))) tokens.shift();
+  return tokens[0] ?? full;
+}
+
 export function levenshtein(a: string, b: string): number {
   if (a === b) return 0;
   if (!a.length) return b.length;

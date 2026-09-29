@@ -1,4 +1,5 @@
 import { appleMapsUrl, googleCalendarUrl, googleMapsUrl } from '../core/links';
+import { firstName } from '../core/matching';
 import { countdown, currentOrNext, eventStatus, formatDay, formatTime, groupByDay } from '../core/time';
 import type { EventInfo, GuestPayload } from '../core/types';
 
@@ -11,16 +12,26 @@ export function esc(s: string): string {
     .replace(/'/g, '&#39;');
 }
 
-export function firstName(full: string): string {
-  return full.trim().split(/\s+/)[0] ?? full;
-}
+export { firstName };
+
+/** Decorative Scottsdale scene (sun, mountains, saguaro) echoing the invitation cover. */
+export const DESERT_SCENE = `<svg class="scene" viewBox="0 0 400 110" preserveAspectRatio="xMidYMax slice" aria-hidden="true" focusable="false">
+  <circle cx="110" cy="62" r="34" fill="#ffd88a" opacity=".9"/>
+  <path d="M0 110V76l40-24 30 16 52-40 46 34 40-22 54 30 46-34 44 30 48-20V110z" fill="#e9a071" opacity=".65"/>
+  <path d="M0 110V92q100-24 200-4t200-6v28z" fill="#c8654b"/>
+  <g fill="#6f7f4f"><rect x="322" y="46" width="11" height="62" rx="5.5"/><rect x="304" y="62" width="9" height="24" rx="4.5"/><rect x="304" y="80" width="26" height="8" rx="4"/><rect x="340" y="54" width="9" height="22" rx="4.5"/><rect x="327" y="70" width="22" height="8" rx="4"/></g>
+  <g fill="#6f7f4f" opacity=".85"><rect x="52" y="76" width="8" height="32" rx="4"/><rect x="40" y="84" width="6" height="14" rx="3"/><rect x="40" y="94" width="18" height="6" rx="3"/></g>
+</svg>`;
+
+const RULE = '<div class="rule" aria-hidden="true"><span>&#10049;</span></div>';
 
 export function renderGate(error = ''): string {
   return `
   <main class="gate">
-    <div class="gate-card">
+    <div class="gate-card"><div class="gate-inner">
       <p class="eyebrow">You're invited</p>
-      <h1 class="monogram">N <span>&amp;</span> S</h1>
+      <h1 class="monogram">N &amp; S</h1>
+      ${RULE}
       <p class="lede">Enter your name and wedding code to see your weekend.</p>
       <form id="gate-form" novalidate>
         <label for="name">Your name</label>
@@ -30,14 +41,14 @@ export function renderGate(error = ''): string {
         <p id="gate-error" class="error" role="alert" ${error ? '' : 'hidden'}>${esc(error)}</p>
         <button type="submit" class="btn">Unlock my weekend</button>
       </form>
-    </div>
+    </div></div>
   </main>`;
 }
 
 export function renderPartyPicker(name: string, choices: { index: number; label: string }[]): string {
   return `
   <main class="gate">
-    <div class="gate-card">
+    <div class="gate-card"><div class="gate-inner">
       <p class="eyebrow">One quick step</p>
       <h1 class="picker-title">Select your party</h1>
       <p class="lede">More than one invitation includes the name &ldquo;${esc(name)}&rdquo;. Which one is yours?</p>
@@ -45,7 +56,7 @@ export function renderPartyPicker(name: string, choices: { index: number; label:
         ${choices.map((c) => `<button type="button" class="party" data-pick="${c.index}">${esc(c.label)}</button>`).join('')}
       </div>
       <button type="button" class="link" id="picker-back">Back</button>
-    </div>
+    </div></div>
   </main>`;
 }
 
@@ -74,18 +85,19 @@ export function renderEvent(e: EventInfo, tz: string, now: Date): string {
       <button class="chip" data-ics="${esc(e.id)}" type="button">Download .ics</button>`;
   return `
   <article class="event ${status}" data-event="${esc(e.id)}">
-    <header>
+    <div class="frame"><div class="panel">
       <p class="time">${e.timeTbd ? esc(when) : when}</p>
       <h3>${esc(e.name)} ${badge}</h3>
-    </header>
-    ${e.description ? `<p>${esc(e.description)}</p>` : ''}
-    <p class="venue"><strong>${esc(e.venue)}</strong><br>${esc(e.address)}</p>
-    ${e.dressCode ? `<p class="dress"><span class="label">Attire</span> ${esc(e.dressCode)}${e.dressNotes ? `<br><span class="muted">${esc(e.dressNotes)}</span>` : ''}</p>` : ''}
-    <div class="actions">
-      <a class="chip" href="${esc(googleMapsUrl(e))}" target="_blank" rel="noopener">Google Maps</a>
-      <a class="chip" href="${esc(appleMapsUrl(e))}" target="_blank" rel="noopener">Apple Maps</a>
-      ${calendar}
-    </div>
+      ${RULE}
+      ${e.description ? `<p class="desc">${esc(e.description)}</p>` : ''}
+      <p class="venue"><strong>${esc(e.venue)}</strong><br>${esc(e.address)}</p>
+      ${e.dressCode ? `<p class="dress"><span class="label">Attire</span><span class="attire">${esc(e.dressCode)}</span>${e.dressNotes ? `<br><span class="muted">${esc(e.dressNotes)}</span>` : ''}</p>` : ''}
+      <div class="actions">
+        <a class="chip" href="${esc(googleMapsUrl(e))}" target="_blank" rel="noopener">Google Maps</a>
+        <a class="chip" href="${esc(appleMapsUrl(e))}" target="_blank" rel="noopener">Apple Maps</a>
+        ${calendar}
+      </div>
+    </div></div>
   </article>`;
 }
 
@@ -101,6 +113,7 @@ export function renderWeekend(p: GuestPayload, now: Date): string {
     ${renderCountdown(p, now)}
     <p class="welcome">${esc(p.content.welcome)}</p>
     ${others.length ? `<p class="household">Also on your invitation: ${esc(others.join(', '))}</p>` : ''}
+    ${DESERT_SCENE}
   </section>
   ${
     days.length

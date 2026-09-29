@@ -158,6 +158,74 @@ test.describe('select your party', () => {
   });
 });
 
+test.describe('legibility', () => {
+  // WCAG contrast of an element's text against its effective (blended) background.
+  const contrast = (loc: import('@playwright/test').Locator) =>
+    loc.evaluate((el) => {
+      const parse = (c: string): [number, number, number, number] => {
+        let m = c.match(/rgba?\(([^)]+)\)/);
+        if (m) {
+          const v = m[1].split(/[ ,/]+/).filter(Boolean).map(Number);
+          return [v[0], v[1], v[2], v[3] ?? 1];
+        }
+        m = c.match(/color\(srgb ([^)]+)\)/);
+        if (m) {
+          const v = m[1].split(/[ /]+/).filter(Boolean).map(Number);
+          return [v[0] * 255, v[1] * 255, v[2] * 255, v[3] ?? 1];
+        }
+        return [0, 0, 0, 0];
+      };
+      const over = (top: number[], bot: number[]) => {
+        const a = top[3];
+        return [0, 1, 2].map((i) => top[i] * a + bot[i] * (1 - a)).concat([1]);
+      };
+      let bg: number[] = [253, 243, 227, 1];
+      const chain: Element[] = [];
+      for (let n: Element | null = el; n; n = n.parentElement) chain.push(n);
+      for (const n of chain.reverse()) bg = over(parse(getComputedStyle(n).backgroundColor), bg);
+      const fg = over(parse(getComputedStyle(el).color), bg);
+      const lum = (c: number[]) => {
+        const f = (v: number) => ((v /= 255) <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+        return 0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2]);
+      };
+      const [hi, lo] = [lum(fg), lum(bg)].sort((a, b) => b - a);
+      return (hi + 0.05) / (lo + 0.05);
+    });
+
+  test('every event button is readable at rest and on hover, in every theme', async ({ page }) => {
+    await unlock(page, 'Alex Rivera'); // sample events include the dark "reception" theme
+    await expect(page.locator('.hero')).toBeVisible();
+    const chips = page.locator('.event .chip');
+    const n = await chips.count();
+    expect(n).toBeGreaterThan(6);
+    for (let i = 0; i < n; i++) {
+      const chip = chips.nth(i);
+      await chip.scrollIntoViewIfNeeded();
+      await page.mouse.move(0, 0);
+      const rest = await contrast(chip);
+      await chip.hover();
+      const hover = await contrast(chip);
+      const label = await chip.innerText();
+      const theme = await chip.evaluate((el) => el.closest('.event')!.getAttribute('data-event'));
+      expect(rest, `${theme} / ${label} at rest`).toBeGreaterThanOrEqual(3);
+      expect(hover, `${theme} / ${label} on hover`).toBeGreaterThanOrEqual(3);
+    }
+  });
+
+  test('body text and titles pass contrast in every event card', async ({ page }) => {
+    await unlock(page, 'Alex Rivera');
+    await expect(page.locator('.hero')).toBeVisible();
+    for (const sel of ['.event h3', '.event .desc', '.event .venue', '.event .time']) {
+      const els = page.locator(sel);
+      for (let i = 0; i < (await els.count()); i++) {
+        const c = await contrast(els.nth(i));
+        const theme = await els.nth(i).evaluate((el) => el.closest('.event')!.getAttribute('data-event'));
+        expect(c, `${theme} ${sel}`).toBeGreaterThanOrEqual(3);
+      }
+    }
+  });
+});
+
 test.describe('quality', () => {
   test('no horizontal scroll', async ({ page }) => {
     await unlock(page, 'Alex Rivera');

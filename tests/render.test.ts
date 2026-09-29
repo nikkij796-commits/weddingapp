@@ -138,3 +138,12 @@ describe('party picker', () => {
   });
   it('escapes the typed name', () => expect(h).toContain('Pat &lt;Kim&gt;'));
 });
+
+describe('greeting with titles (real guest lists have them)', () => {
+  it('greets "Dr. Neel Jain" by first name, not "Dr."', () => {
+    const p = { ...payloadFor('Sam Chen'), guestName: 'Dr. Neel Jain' };
+    const h = renderWeekend(p, before);
+    expect(h).toContain('Welcome, Neel');
+    expect(h).not.toContain('Welcome, Dr');
+  });
+});

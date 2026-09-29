@@ -1,3 +1,8 @@
+import '@fontsource/sacramento/latin-400.css';
+import '@fontsource/cormorant-garamond/latin-400.css';
+import '@fontsource/cormorant-garamond/latin-500.css';
+import '@fontsource/jost/latin-400.css';
+import '@fontsource/jost/latin-500.css';
 import './style.css';
 import { buildIcs } from './core/links';
 import type { GuestPayload } from './core/types';
