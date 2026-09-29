@@ -1,5 +1,9 @@
 import type { EventInfo } from './types';
 
+function details(e: Pick<EventInfo, 'dressCode' | 'description'>): string {
+  return [e.dressCode ? `Dress code: ${e.dressCode}.` : '', e.description].filter(Boolean).join(' ');
+}
+
 export function googleMapsUrl(e: Pick<EventInfo, 'venue' | 'address'>): string {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${e.venue}, ${e.address}`)}`;
 }
@@ -56,7 +60,7 @@ export function buildIcs(events: EventInfo[], calName: string, stamp = new Date(
       `DTEND:${icsDate(e.end)}`,
       `SUMMARY:${icsEscape(e.name)}`,
       `LOCATION:${icsEscape(`${e.venue}, ${e.address}`)}`,
-      `DESCRIPTION:${icsEscape(`Dress code: ${e.dressCode}. ${e.description}`.trim())}`,
+      `DESCRIPTION:${icsEscape(details(e))}`,
       'END:VEVENT',
     );
   }
@@ -70,7 +74,7 @@ export function googleCalendarUrl(e: EventInfo): string {
     text: e.name,
     dates: `${icsDate(e.start)}/${icsDate(e.end)}`,
     location: `${e.venue}, ${e.address}`,
-    details: `Dress code: ${e.dressCode}. ${e.description}`.trim(),
+    details: details(e),
   });
   return `https://calendar.google.com/calendar/render?${p.toString()}`;
 }

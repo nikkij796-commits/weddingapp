@@ -9,6 +9,10 @@ export interface EventInfo {
   dressCode: string;
   dressNotes: string;
   description: string;
+  /** Date is known but the time isn't: shown as "Time to be announced", no calendar buttons, no countdown. */
+  timeTbd?: boolean;
+  /** Publish-time rule: every guest is invited (used for events with no column in the guest sheet). */
+  everyone?: boolean;
 }
 
 export interface Guest {
@@ -20,19 +24,11 @@ export interface Guest {
   invited: string[];
 }
 
-export interface InfoItem {
-  title: string;
-  body: string;
-  url?: string;
-}
-
 export interface Content {
   coupleNames: string;
   tagline: string;
   timezone: string;
   welcome: string;
-  travel: InfoItem[];
-  lodging: InfoItem[];
   faq: { q: string; a: string }[];
   contact: { label: string; detail: string };
   updates: { id: string; at: string; message: string }[];

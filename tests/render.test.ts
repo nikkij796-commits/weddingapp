@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { RateLimiter, handleUnlock } from '../src/server/unlock';
-import { esc, firstName, renderApp, renderCountdown, renderFaq, renderGate, renderTravel, renderUpdates, renderWeekend, safeUrl } from '../src/ui/render';
+import { esc, firstName, renderApp, renderCountdown, renderFaq, renderGate, renderPartyPicker, renderUpdates, renderWeekend } from '../src/ui/render';
 import type { GuestPayload } from '../src/core/types';
 import { sample } from './fixtures';
 
@@ -12,14 +12,8 @@ const payloadFor = (name: string): GuestPayload => {
 };
 const before = new Date('2027-06-01T12:00:00-04:00');
 
-describe('esc / safeUrl', () => {
+describe('esc', () => {
   it('escapes html', () => expect(esc(`<img src=x onerror="a('b')">&`)).toBe('&lt;img src=x onerror=&quot;a(&#39;b&#39;)&quot;&gt;&amp;'));
-  it('allows https and http', () => {
-    expect(safeUrl('https://example.com/a')).toBe('https://example.com/a');
-    expect(safeUrl('http://example.com/')).toBe('http://example.com/');
-  });
-  it.each(['javascript:alert(1)', 'data:text/html,hi', 'not a url', '', undefined])('rejects %s', (u) =>
-    expect(safeUrl(u as string | undefined)).toBeNull());
   it('firstName', () => expect(firstName('  María José García')).toBe('María'));
 });
 
@@ -85,17 +79,11 @@ describe('countdown', () => {
 
 describe('other tabs', () => {
   const p = payloadFor('Sam Chen');
-  it('travel renders sections and safe links only', () => {
-    const h = renderTravel({ ...p, content: { ...p.content, lodging: [{ title: 'X', body: 'y', url: 'javascript:alert(1)' }] } });
-    expect(h).toContain('Getting there');
-    expect(h).not.toContain('javascript:');
-  });
-  it('travel renders lodging link', () => expect(renderTravel(p)).toContain('https://example.com/hotel'));
   it('faq uses details/summary and contact', () => {
     const h = renderFaq(p);
     expect(h).toContain('<details');
-    expect(h).toContain('Are children welcome?');
-    expect(h).toContain('(555) 010-0100');
+    expect(h).toContain('What&#39;s the weather like?');
+    expect(h).not.toContain('Contact');
   });
   it('updates newest first, with empty state', () => {
     const two = { ...p, content: { ...p.content, updates: [{ id: 'a', at: '2027-05-01T09:00:00-04:00', message: 'OLD' }, { id: 'b', at: '2027-06-01T09:00:00-04:00', message: 'NEW' }] } };
@@ -108,4 +96,45 @@ describe('other tabs', () => {
     expect(h).toMatch(/data-tab="faq" aria-current="page"/);
     expect(h).toContain('id="signout"');
   });
+});
+
+describe('three tabs, no Travel', () => {
+  const p = payloadFor('Sam Chen');
+  it('has Weekend, FAQ and Updates only', () => {
+    const h = renderApp(p, 'weekend', before);
+    expect(h.match(/data-tab="/g)).toHaveLength(3);
+    expect(h).not.toContain('Travel');
+  });
+});
+
+describe('time to be announced / no attire', () => {
+  const p = payloadFor('Alex Rivera');
+  const h = renderWeekend(p, before);
+  const brunch = h.slice(h.indexOf('data-event="brunch"'));
+  it('shows "Time to be announced" for the brunch', () => expect(brunch).toContain('Time to be announced'));
+  it('omits attire when there is no dress code', () => expect(brunch.slice(0, brunch.indexOf('</article>'))).not.toContain('Attire'));
+  it('keeps map links but drops calendar buttons for TBD events', () => {
+    const card = brunch.slice(0, brunch.indexOf('</article>'));
+    expect(card).toContain('google.com/maps');
+    expect(card).not.toMatch(/calendar\.google|data-ics/);
+  });
+  it('still shows attire and calendar for timed events', () => {
+    const cer = h.slice(h.indexOf('data-event="ceremony"'), h.indexOf('data-event="reception"'));
+    expect(cer).toContain('Attire');
+    expect(cer).toContain('data-ics="ceremony"');
+  });
+  it('never counts down to a TBD event', () => {
+    const onlyTbd = { ...p, events: p.events.filter((e) => e.id === 'brunch') };
+    expect(renderCountdown(onlyTbd, before)).toContain('Thank you');
+  });
+});
+
+describe('party picker', () => {
+  const h = renderPartyPicker('Pat <Kim>', [{ index: 0, label: 'Pat Kim & Lee Kim' }, { index: 1, label: 'Pat Kim' }]);
+  it('lists each party as a button with its index', () => {
+    expect(h).toContain('data-pick="0"');
+    expect(h).toContain('data-pick="1"');
+    expect(h).toContain('Select your party');
+  });
+  it('escapes the typed name', () => expect(h).toContain('Pat &lt;Kim&gt;'));
 });

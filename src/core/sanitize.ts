@@ -1,6 +1,6 @@
 import { parseCsv } from './csv';
 import { normalizeName } from './matching';
-import type { Content, EventInfo, Guest, InfoItem, PublishedData } from './types';
+import type { Content, EventInfo, Guest, PublishedData } from './types';
 
 /** Terms that must never appear in guest-facing copy. A hit fails the publish. */
 export const FORBIDDEN = [
@@ -42,20 +42,11 @@ function strings(value: unknown, path: string, out: { path: string; text: string
 
 const str = (v: unknown, fallback = ''): string => (typeof v === 'string' ? v.trim() : fallback);
 
-function pickItems(v: unknown): InfoItem[] {
-  if (!Array.isArray(v)) return [];
-  return v.map((i) => {
-    const item: InfoItem = { title: str(i?.title), body: str(i?.body) };
-    const url = str(i?.url);
-    if (url) item.url = url;
-    return item;
-  });
-}
-
 export function pickEvents(raw: unknown): EventInfo[] {
   if (!Array.isArray(raw)) return [];
   // Allowlist: only these keys survive, whatever else the source file contains.
-  return raw.map((e) => ({
+  return raw.map((e) => {
+    const out: EventInfo = {
     id: str(e?.id),
     name: str(e?.name),
     start: str(e?.start),
@@ -65,7 +56,11 @@ export function pickEvents(raw: unknown): EventInfo[] {
     dressCode: str(e?.dressCode),
     dressNotes: str(e?.dressNotes),
     description: str(e?.description),
-  }));
+    };
+    if (e?.timeTbd === true) out.timeTbd = true;
+    if (e?.everyone === true) out.everyone = true;
+    return out;
+  });
 }
 
 export function pickContent(raw: any): Content {
@@ -74,8 +69,6 @@ export function pickContent(raw: any): Content {
     tagline: str(raw?.tagline),
     timezone: str(raw?.timezone),
     welcome: str(raw?.welcome),
-    travel: pickItems(raw?.travel),
-    lodging: pickItems(raw?.lodging),
     faq: Array.isArray(raw?.faq) ? raw.faq.map((f: any) => ({ q: str(f?.q), a: str(f?.a) })) : [],
     contact: { label: str(raw?.contact?.label), detail: str(raw?.contact?.detail) },
     updates: Array.isArray(raw?.updates)
@@ -121,8 +114,11 @@ export function guestsFromCsv(csv: string, events: EventInfo[], onSkip?: (name: 
     if (idx < 0) idx = header.indexOf(e.name.toLowerCase());
     return { id: e.id, idx };
   });
-  const invitedFor = (r: string[]) =>
-    eventCols.filter((c) => c.idx >= 0 && truthy(r[c.idx] ?? '')).map((c) => c.id);
+  const everyoneIds = events.filter((e) => e.everyone).map((e) => e.id);
+  const invitedFor = (r: string[]) => [
+    ...eventCols.filter((c) => c.idx >= 0 && truthy(r[c.idx] ?? '')).map((c) => c.id),
+    ...everyoneIds.filter((id) => !eventCols.some((c) => c.id === id && c.idx >= 0 && truthy(r[c.idx] ?? ''))),
+  ];
 
   const out: Guest[] = [];
   rows.slice(1).forEach((r, i) => {
@@ -183,6 +179,20 @@ export function validate(data: PublishedData): string[] {
   return errors;
 }
 
+/**
+ * Extra names a guest may type, keyed by the name exactly as written in the guest sheet
+ * (e.g. { "Ms. Nikita Jain": ["Nikki Jain"] }). Returns keys that matched nobody.
+ */
+export function applyAliases(guests: Guest[], aliases: Record<string, string[]>): string[] {
+  const unmatched: string[] = [];
+  for (const [key, list] of Object.entries(aliases)) {
+    const hits = guests.filter((g) => g.name.trim().toLowerCase() === key.trim().toLowerCase());
+    if (!hits.length) unmatched.push(key);
+    for (const g of hits) g.aliases = [...new Set([...g.aliases, ...list.map((a) => a.trim()).filter(Boolean)])];
+  }
+  return unmatched;
+}
+
 /** Names (after title stripping) that belong to more than one household: those guests can't unlock by name alone. */
 export function duplicateNames(guests: Guest[]): string[] {
   const byName = new Map<string, Set<string>>();
@@ -206,6 +216,7 @@ export function buildPublished(input: {
   events: unknown;
   content: unknown;
   guestsCsv: string;
+  aliases?: Record<string, string[]>;
   onWarn?: (message: string) => void;
 }): PublishedData {
   const events = pickEvents(input.events);
@@ -213,8 +224,10 @@ export function buildPublished(input: {
   const skipped: string[] = [];
   const guests = guestsFromCsv(input.guestsCsv, events, (n) => skipped.push(n));
   if (skipped.length) input.onWarn?.(`Skipped ${skipped.length} placeholder name(s) that guests can't type: ${skipped.join('; ')}`);
+  const unmatchedAliases = applyAliases(guests, input.aliases ?? {});
+  if (unmatchedAliases.length) input.onWarn?.(`Alias entries that match no guest (check spelling): ${unmatchedAliases.join('; ')}`);
   const dups = duplicateNames(guests);
-  if (dups.length) input.onWarn?.(`${dups.length} name(s) appear in more than one household and won't unlock by name alone: ${dups.join('; ')}`);
+  if (dups.length) input.onWarn?.(`${dups.length} name(s) appear in more than one household; guests will be asked to select their party: ${dups.join('; ')}`);
   const data: PublishedData = { code: input.code.trim(), events, guests, content };
 
   const problems = validate(data);

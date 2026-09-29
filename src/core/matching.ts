@@ -49,7 +49,7 @@ export function levenshtein(a: string, b: string): number {
 
 export type MatchResult =
   | { kind: 'match'; guest: Guest }
-  | { kind: 'ambiguous' }
+  | { kind: 'ambiguous'; exact: boolean; guests: Guest[] }
   | { kind: 'none' };
 
 interface Candidate {
@@ -75,12 +75,12 @@ function allowedDistance(len: number): number {
   return len <= 8 ? 1 : 2;
 }
 
-function resolve(hits: Guest[]): MatchResult {
+function resolve(hits: Guest[], exact: boolean): MatchResult {
   const ids = new Set(hits.map((g) => g.id));
   if (ids.size === 1) return { kind: 'match', guest: hits[0] };
   const households = new Set(hits.map((g) => g.householdId));
   if (households.size === 1) return { kind: 'match', guest: hits[0] };
-  return { kind: 'ambiguous' };
+  return { kind: 'ambiguous', exact, guests: hits };
 }
 
 export function matchGuest(guests: Guest[], input: string): MatchResult {
@@ -89,7 +89,7 @@ export function matchGuest(guests: Guest[], input: string): MatchResult {
   const cands = guests.flatMap(candidatesFor);
 
   const exact = cands.filter((c) => c.name === n).map((c) => c.guest);
-  if (exact.length) return resolve(exact);
+  if (exact.length) return resolve(exact, true);
 
   // Fuzzy matching needs at least two words so a first name alone can't probe the list.
   if (n.split(' ').length < 2) return { kind: 'none' };
@@ -104,5 +104,5 @@ export function matchGuest(guests: Guest[], input: string): MatchResult {
       hits = [c.guest];
     } else if (d === best) hits.push(c.guest);
   }
-  return hits.length ? resolve(hits) : { kind: 'none' };
+  return hits.length ? resolve(hits, false) : { kind: 'none' };
 }

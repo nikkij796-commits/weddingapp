@@ -142,3 +142,55 @@ describe('isPlaceholderName', () => {
   it.each(['Kid Cudi', 'Dr. Neel Jain', 'Wife Man', 'Jay Shah', 'Sanika Shah'])('%j is a real name', (n) =>
     expect(isPlaceholderName(n)).toBe(false));
 });
+
+describe('aliases, everyone-events and undecided times', () => {
+  const events = [
+    ...base.events,
+    { ...base.events[0], id: 'lunch', name: 'Lunch', everyone: true },
+    { ...base.events[0], id: 'tbd', name: 'Brunch', timeTbd: true, everyone: true, dressCode: '' },
+  ];
+  const sheet = 'Guest 1 name,Guest 2 name,ceremony\nMs. Nikita Jain,Mr. Soham Shah,TRUE\nMrs. Nikita Jain,Mr. Vipul Jain,FALSE';
+  const make = (extra: object = {}) =>
+    buildPublished({ code: 'luke', events, content: base.content, guestsCsv: sheet, ...extra });
+
+  it('keeps the everyone and timeTbd flags through the allowlist', () => {
+    const d = make();
+    expect(d.events.find((e) => e.id === 'lunch')!.everyone).toBe(true);
+    expect(d.events.find((e) => e.id === 'tbd')!.timeTbd).toBe(true);
+    expect(d.events.find((e) => e.id === 'ceremony')!.timeTbd).toBeUndefined();
+  });
+  it('invites every household to everyone-events, even with no sheet column', () => {
+    const d = make();
+    for (const g of d.guests) expect(g.invited).toEqual(expect.arrayContaining(['lunch', 'tbd']));
+  });
+  it('still respects sheet checkboxes for normal events', () => {
+    const d = make();
+    expect(d.guests[0].invited).toContain('ceremony');
+    expect(d.guests[2].invited).not.toContain('ceremony');
+  });
+  it('applies an alias only to the exactly-named guest', () => {
+    const d = make({ aliases: { 'Ms. Nikita Jain': ['Nikki Jain'] } });
+    expect(d.guests.find((g) => g.name === 'Ms. Nikita Jain')!.aliases).toEqual(['Nikki Jain']);
+    expect(d.guests.find((g) => g.name === 'Mrs. Nikita Jain')!.aliases).toEqual([]);
+  });
+  it('warns about an alias that matches nobody', () => {
+    const w: string[] = [];
+    make({ aliases: { 'Ms. Nikta Jain': ['Nikki'] }, onWarn: (m: string) => w.push(m) });
+    expect(w.join()).toMatch(/match no guest.*Nikta/);
+  });
+  it('the bride can unlock as "Nikki Jain" and shared "Nikita Jain" asks for a party', async () => {
+    const { handleUnlock, RateLimiter } = await import('../src/server/unlock');
+    const d = make({ aliases: { 'Ms. Nikita Jain': ['Nikki Jain'] } });
+    const go = (name: string, pick?: number) => handleUnlock(d, { name, code: 'LUKE', pick }, new RateLimiter(), 'k');
+    expect(go('Nikki Jain').status).toBe(200);
+    expect(go('Nikita Jain').status).toBe(409);
+  });
+  it('warns that shared names lead to the party picker', () => {
+    const w: string[] = [];
+    make({ onWarn: (m: string) => w.push(m) });
+    expect(w.join()).toMatch(/select their party.*nikita jain/);
+  });
+  it('a TBD-time event does not need to look valid as a time of day', () => {
+    expect(() => make()).not.toThrow();
+  });
+});

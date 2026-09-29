@@ -59,3 +59,17 @@ describe('sort & group', () => {
     expect(copy.map((e) => e.id)).toEqual(before);
   });
 });
+
+describe('events with an undecided time', () => {
+  const tbd = { ...events.find((x) => x.id === 'brunch')!, timeTbd: true };
+  const all = events.map((e) => (e.id === 'brunch' ? tbd : e));
+  it('is never "live", even inside its placeholder window', () =>
+    expect(eventStatus(tbd, at('2027-06-13T11:00:00-04:00'))).toBe('upcoming'));
+  it('becomes past once its day is over', () => expect(eventStatus(tbd, at('2027-06-14T00:00:00-04:00'))).toBe('past'));
+  it('is skipped for the countdown target', () =>
+    expect(currentOrNext(all, at('2027-06-12T23:45:00-04:00'))).toBeUndefined());
+  it('still sorts and groups with the rest', () => {
+    const g = groupByDay(all, 'America/New_York');
+    expect(g[g.length - 1].events.map((e) => e.id)).toEqual(['brunch']);
+  });
+});

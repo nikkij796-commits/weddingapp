@@ -1,6 +1,6 @@
 import { appleMapsUrl, googleCalendarUrl, googleMapsUrl } from '../core/links';
 import { countdown, currentOrNext, eventStatus, formatDay, formatTime, groupByDay } from '../core/time';
-import type { EventInfo, GuestPayload, InfoItem } from '../core/types';
+import type { EventInfo, GuestPayload } from '../core/types';
 
 export function esc(s: string): string {
   return s
@@ -9,17 +9,6 @@ export function esc(s: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
-}
-
-/** Only http(s) links are ever rendered as hrefs. */
-export function safeUrl(u: string | undefined): string | null {
-  if (!u) return null;
-  try {
-    const p = new URL(u);
-    return p.protocol === 'https:' || p.protocol === 'http:' ? p.href : null;
-  } catch {
-    return null;
-  }
 }
 
 export function firstName(full: string): string {
@@ -45,6 +34,21 @@ export function renderGate(error = ''): string {
   </main>`;
 }
 
+export function renderPartyPicker(name: string, choices: { index: number; label: string }[]): string {
+  return `
+  <main class="gate">
+    <div class="gate-card">
+      <p class="eyebrow">One quick step</p>
+      <h1 class="picker-title">Select your party</h1>
+      <p class="lede">More than one invitation includes the name &ldquo;${esc(name)}&rdquo;. Which one is yours?</p>
+      <div class="party-list">
+        ${choices.map((c) => `<button type="button" class="party" data-pick="${c.index}">${esc(c.label)}</button>`).join('')}
+      </div>
+      <button type="button" class="link" id="picker-back">Back</button>
+    </div>
+  </main>`;
+}
+
 export function renderCountdown(p: GuestPayload, now: Date): string {
   const next = currentOrNext(p.events, now);
   if (!next) return `<p class="cd-done">Thank you for celebrating with us.</p>`;
@@ -63,20 +67,24 @@ export function renderEvent(e: EventInfo, tz: string, now: Date): string {
   const status = eventStatus(e, now);
   const badge =
     status === 'live' ? '<span class="badge live">Happening now</span>' : status === 'past' ? '<span class="badge past">Completed</span>' : '';
+  const when = e.timeTbd ? 'Time to be announced' : `${formatTime(e.start, tz)} &ndash; ${formatTime(e.end, tz)}`;
+  const calendar = e.timeTbd
+    ? ''
+    : `<a class="chip" href="${esc(googleCalendarUrl(e))}" target="_blank" rel="noopener">Add to Google Calendar</a>
+      <button class="chip" data-ics="${esc(e.id)}" type="button">Download .ics</button>`;
   return `
   <article class="event ${status}" data-event="${esc(e.id)}">
     <header>
-      <p class="time">${esc(formatTime(e.start, tz))} &ndash; ${esc(formatTime(e.end, tz))}</p>
+      <p class="time">${e.timeTbd ? esc(when) : when}</p>
       <h3>${esc(e.name)} ${badge}</h3>
     </header>
     ${e.description ? `<p>${esc(e.description)}</p>` : ''}
     <p class="venue"><strong>${esc(e.venue)}</strong><br>${esc(e.address)}</p>
-    <p class="dress"><span class="label">Attire</span> ${esc(e.dressCode)}${e.dressNotes ? `<br><span class="muted">${esc(e.dressNotes)}</span>` : ''}</p>
+    ${e.dressCode ? `<p class="dress"><span class="label">Attire</span> ${esc(e.dressCode)}${e.dressNotes ? `<br><span class="muted">${esc(e.dressNotes)}</span>` : ''}</p>` : ''}
     <div class="actions">
       <a class="chip" href="${esc(googleMapsUrl(e))}" target="_blank" rel="noopener">Google Maps</a>
       <a class="chip" href="${esc(appleMapsUrl(e))}" target="_blank" rel="noopener">Apple Maps</a>
-      <a class="chip" href="${esc(googleCalendarUrl(e))}" target="_blank" rel="noopener">Add to Google Calendar</a>
-      <button class="chip" data-ics="${esc(e.id)}" type="button">Download .ics</button>
+      ${calendar}
     </div>
   </article>`;
 }
@@ -99,21 +107,6 @@ export function renderWeekend(p: GuestPayload, now: Date): string {
       ? days.map((d) => `<section class="day"><h2>${esc(d.day)}</h2>${d.events.map((e) => renderEvent(e, tz, now)).join('')}</section>`).join('')
       : '<p class="empty">Your schedule will appear here soon.</p>'
   }`;
-}
-
-function items(list: InfoItem[]): string {
-  return list
-    .map((i) => {
-      const url = safeUrl(i.url);
-      return `<article class="card"><h3>${esc(i.title)}</h3><p>${esc(i.body)}</p>${url ? `<a class="chip" href="${esc(url)}" target="_blank" rel="noopener">Learn more</a>` : ''}</article>`;
-    })
-    .join('');
-}
-
-export function renderTravel(p: GuestPayload): string {
-  const { travel, lodging } = p.content;
-  return `<section><h2>Getting there</h2>${travel.length ? items(travel) : '<p class="empty">Details coming soon.</p>'}</section>
-  <section><h2>Where to stay</h2>${lodging.length ? items(lodging) : '<p class="empty">Details coming soon.</p>'}</section>`;
 }
 
 export function renderFaq(p: GuestPayload): string {
@@ -140,7 +133,6 @@ export function renderUpdates(p: GuestPayload, tz = p.content.timezone): string 
 
 export const TABS = [
   { id: 'weekend', label: 'Weekend' },
-  { id: 'travel', label: 'Travel' },
   { id: 'faq', label: 'FAQ' },
   { id: 'updates', label: 'Updates' },
 ] as const;
@@ -148,7 +140,7 @@ export type TabId = (typeof TABS)[number]['id'];
 
 export function renderApp(p: GuestPayload, tab: TabId, now: Date): string {
   const body =
-    tab === 'weekend' ? renderWeekend(p, now) : tab === 'travel' ? renderTravel(p) : tab === 'faq' ? renderFaq(p) : renderUpdates(p);
+    tab === 'weekend' ? renderWeekend(p, now) : tab === 'faq' ? renderFaq(p) : renderUpdates(p);
   return `
   <div class="app">
     <main id="content" tabindex="-1">${body}</main>

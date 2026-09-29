@@ -88,15 +88,24 @@ test.describe('personalized experience', () => {
     expect(text).toContain('SUMMARY:Ceremony');
   });
 
-  test('tabs navigate and FAQ expands', async ({ page }) => {
+  test('has three tabs (no Travel) and FAQ expands', async ({ page }) => {
     await unlock(page, 'Sam Chen');
-    await page.getByRole('button', { name: 'Travel' }).click();
-    await expect(page.getByText('Flying in')).toBeVisible();
+    await expect(page.locator('.tabs button')).toHaveText(['Weekend', 'FAQ', 'Updates']);
     await page.getByRole('button', { name: 'FAQ' }).click();
-    await page.getByText('What if it rains?').click();
-    await expect(page.getByText('indoor backup')).toBeVisible();
+    await page.getByText("What's the weather like?").click();
+    await expect(page.getByText('sunny and mild')).toBeVisible();
+    await expect(page.getByText('Uber voucher details')).toBeAttached();
     await page.getByRole('button', { name: 'Updates' }).click();
     await expect(page.getByText('Shuttle schedule will be posted')).toBeVisible();
+  });
+
+  test('undecided-time event says "Time to be announced" and has no attire or calendar', async ({ page }) => {
+    await unlock(page, 'Alex Rivera');
+    const brunch = page.locator('[data-event=brunch]');
+    await expect(brunch).toContainText('Time to be announced');
+    await expect(brunch).not.toContainText('Attire');
+    await expect(brunch.getByRole('link', { name: 'Add to Google Calendar' })).toHaveCount(0);
+    await expect(brunch.getByRole('link', { name: 'Google Maps' })).toBeVisible();
   });
 
   test('session persists across reload and sign out clears it', async ({ page }) => {
@@ -107,6 +116,45 @@ test.describe('personalized experience', () => {
     await page.getByRole('button', { name: 'Not you? Sign out' }).click();
     await page.reload();
     await expect(page.locator('#gate-form')).toBeVisible();
+  });
+});
+
+test.describe('select your party', () => {
+  test('a shared name asks which party, then shows that party\'s weekend', async ({ page }) => {
+    await unlock(page, 'Pat Kim');
+    await expect(page.getByRole('heading', { name: 'Select your party' })).toBeVisible();
+    await expect(page.locator('[data-pick]')).toHaveText(['Pat Kim & Lee Kim', 'Pat Kim']);
+    await page.locator('[data-pick="1"]').click();
+    await expect(page.getByText('Welcome, Pat')).toBeVisible();
+    await expect(page.locator('[data-event]')).toHaveCount(2); // ceremony + reception only
+  });
+
+  test('picking the other party shows its household', async ({ page }) => {
+    await unlock(page, 'Pat Kim');
+    await page.locator('[data-pick="0"]').click();
+    await expect(page.getByText('Also on your invitation: Lee Kim')).toBeVisible();
+    await expect(page.locator('[data-event]')).toHaveCount(1);
+  });
+
+  test('the picker is never shown for a wrong code', async ({ page }) => {
+    await unlock(page, 'Pat Kim', 'WRONG');
+    await expect(page.locator('#gate-error')).toBeVisible();
+    await expect(page.getByText('Select your party')).toHaveCount(0);
+    expect(await page.content()).not.toContain('Lee Kim');
+  });
+
+  test('Back returns to the gate', async ({ page }) => {
+    await unlock(page, 'Pat Kim');
+    await page.locator('#picker-back').click();
+    await expect(page.locator('#gate-form')).toBeVisible();
+  });
+
+  test('the picker fits a phone with large tap targets', async ({ page }) => {
+    await unlock(page, 'Pat Kim');
+    await expect(page.locator('.party').first()).toBeVisible();
+    const small = await page.$$eval('.party', (els) => els.filter((e) => e.getBoundingClientRect().height < 44).length);
+    expect(small).toBe(0);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
   });
 });
 

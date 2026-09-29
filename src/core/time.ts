@@ -4,6 +4,7 @@ export type EventStatus = 'upcoming' | 'live' | 'past';
 
 export function eventStatus(e: EventInfo, now: Date): EventStatus {
   const t = now.getTime();
+  if (e.timeTbd) return t > new Date(e.end).getTime() ? 'past' : 'upcoming';
   if (t < new Date(e.start).getTime()) return 'upcoming';
   if (t <= new Date(e.end).getTime()) return 'live';
   return 'past';
@@ -15,7 +16,7 @@ export function sortEvents(events: EventInfo[]): EventInfo[] {
 
 /** The live event if any, otherwise the next upcoming one. */
 export function currentOrNext(events: EventInfo[], now: Date): EventInfo | undefined {
-  const sorted = sortEvents(events);
+  const sorted = sortEvents(events.filter((e) => !e.timeTbd));
   return (
     sorted.find((e) => eventStatus(e, now) === 'live') ??
     sorted.find((e) => eventStatus(e, now) === 'upcoming')

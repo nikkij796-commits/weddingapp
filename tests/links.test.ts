@@ -50,3 +50,14 @@ describe('ics', () => {
     expect(u.searchParams.get('dates')).toBe('20270612T200000Z/20270612T204500Z');
   });
 });
+
+describe('events without a dress code', () => {
+  const e = { ...events[3], dressCode: '', description: 'Goodbye brunch.' };
+  it('ics description omits the empty dress code', () => {
+    const ics = buildIcs([e], 'x');
+    expect(ics).toContain('DESCRIPTION:Goodbye brunch.');
+    expect(ics).not.toMatch(/Dress code/);
+  });
+  it('google calendar details omit it too', () =>
+    expect(new URL(googleCalendarUrl(e)).searchParams.get('details')).toBe('Goodbye brunch.'));
+});

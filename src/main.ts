@@ -1,7 +1,7 @@
 import './style.css';
 import { buildIcs } from './core/links';
 import type { GuestPayload } from './core/types';
-import { TABS, renderApp, renderGate, type TabId } from './ui/render';
+import { TABS, renderApp, renderGate, renderPartyPicker, type TabId } from './ui/render';
 
 const root = document.getElementById('root')!;
 const KEY = 'wedding.session.v1';
@@ -29,6 +29,43 @@ function save(p: GuestPayload | null) {
   }
 }
 
+async function attempt(name: string, code: string, pick?: number): Promise<{ done: boolean; error?: string }> {
+  try {
+    const res = await fetch('/api/unlock', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name, code, pick }),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      payload = data.payload;
+      save(payload);
+      tab = 'weekend';
+      showApp();
+      return { done: true };
+    }
+    if (Array.isArray(data.choose)) {
+      showPicker(name, code, data.choose);
+      return { done: true };
+    }
+    return { done: false, error: data.error ?? 'Something went wrong. Please try again.' };
+  } catch {
+    return { done: false, error: 'We could not reach the server. Check your connection and try again.' };
+  }
+}
+
+function showPicker(name: string, code: string, choices: { index: number; label: string }[]) {
+  root.innerHTML = renderPartyPicker(name, choices);
+  root.querySelectorAll<HTMLButtonElement>('[data-pick]').forEach((b) =>
+    b.addEventListener('click', async () => {
+      root.querySelectorAll<HTMLButtonElement>('[data-pick]').forEach((x) => (x.disabled = true));
+      const r = await attempt(name, code, Number(b.dataset.pick));
+      if (!r.done) showGate(r.error);
+    }),
+  );
+  document.getElementById('picker-back')?.addEventListener('click', () => showGate());
+}
+
 function showGate(error = '') {
   root.innerHTML = renderGate(error);
   const form = document.getElementById('gate-form') as HTMLFormElement;
@@ -45,24 +82,9 @@ function showGate(error = '') {
     }
     btn.disabled = true;
     btn.textContent = 'Checking…';
-    try {
-      const res = await fetch('/api/unlock', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ name, code }),
-      });
-      const data = await res.json();
-      if (data.ok) {
-        payload = data.payload;
-        save(payload);
-        tab = 'weekend';
-        showApp();
-        return;
-      }
-      err.textContent = data.error ?? 'Something went wrong. Please try again.';
-    } catch {
-      err.textContent = 'We could not reach the server. Check your connection and try again.';
-    }
+    const r = await attempt(name, code);
+    if (r.done) return;
+    err.textContent = r.error ?? '';
     err.hidden = false;
     btn.disabled = false;
     btn.textContent = 'Unlock my weekend';

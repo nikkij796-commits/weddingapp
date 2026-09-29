@@ -86,3 +86,57 @@ describe('rate limiting', () => {
     expect(lim.blocked('ip')).toBe(false);
   });
 });
+
+describe('select your party (shared names)', () => {
+  const ask = (name: string, pick?: unknown, code: unknown = 'FOREVER', lim = new RateLimiter()) =>
+    handleUnlock(data, { name, code, pick }, lim, 'ip');
+
+  it('asks which party when the exact same name appears in two households', () => {
+    const r = ask('Pat Kim');
+    expect(r.status).toBe(409);
+    expect(r.body).toEqual({
+      ok: false,
+      choose: [
+        { index: 0, label: 'Pat Kim & Lee Kim' },
+        { index: 1, label: 'Pat Kim' },
+      ],
+    });
+  });
+  it('a title or case difference still reaches the picker', () => expect(ask('dr. PAT kim').status).toBe(409));
+  it('returns the chosen party itinerary', () => {
+    const a = ask('Pat Kim', 0);
+    const b = ask('Pat Kim', 1);
+    if (!a.body.ok || !b.body.ok) throw new Error('expected ok');
+    expect(a.body.payload.events.map((e) => e.id)).toEqual(['ceremony']);
+    expect(a.body.payload.householdNames).toEqual(['Pat Kim', 'Lee Kim']);
+    expect(b.body.payload.events.map((e) => e.id)).toEqual(['ceremony', 'reception']);
+  });
+  it('never shows the picker without the correct code', () => {
+    const r = ask('Pat Kim', undefined, 'WRONG');
+    expect(r.status).toBe(401);
+    expect(JSON.stringify(r.body)).not.toMatch(/Lee Kim|choose/);
+  });
+  it('does not treat the picker as a failed attempt', () => {
+    const lim = new RateLimiter(2);
+    for (let i = 0; i < 5; i++) expect(ask('Pat Kim', undefined, 'FOREVER', lim).status).toBe(409);
+    expect(lim.blocked('ip')).toBe(false);
+  });
+  it.each([-1, 2, 99, 0.5, '0', null, NaN])('rejects an invalid pick %j', (bad) => {
+    const r = ask('Pat Kim', bad);
+    expect([401, 409]).toContain(r.status);
+    expect(r.body.ok).toBe(false);
+    expect('payload' in r.body).toBe(false);
+  });
+  it('an out-of-range pick counts as a failure', () => {
+    const lim = new RateLimiter(2);
+    ask('Pat Kim', 7, 'FOREVER', lim);
+    ask('Pat Kim', 7, 'FOREVER', lim);
+    expect(lim.blocked('ip')).toBe(true);
+  });
+  it('fuzzy near-misses never reveal a picker (no name probing)', () => {
+    const r = ask('Pat Kimm'); // equally close to two parties: must fail plainly, not list them
+    expect(r.status).toBe(401);
+    expect(JSON.stringify(r.body)).not.toMatch(/choose|Lee Kim/);
+  });
+  it('code ignores spaces and case', () => expect(ask('Alex Rivera', undefined, ' for ever ').status).toBe(200));
+});
