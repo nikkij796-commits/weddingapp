@@ -1,0 +1,79 @@
+{
+  "code": "FOREVER",
+  "content": {
+    "coupleNames": "N & S",
+    "tagline": "SAMPLE DATA: replace by running the publish command",
+    "timezone": "America/New_York",
+    "welcome": "Welcome, and thank you for celebrating with us. Everything you need for the weekend is right here, tailored to the events on your invitation.",
+    "travel": [
+      { "title": "Flying in", "body": "The closest major airport is about 40 minutes from the venues. Ride-share and taxis are readily available." },
+      { "title": "Parking", "body": "Complimentary parking is available at the ceremony and reception venues." }
+    ],
+    "lodging": [
+      { "title": "Sample Grand Hotel", "body": "A block of rooms is held under our names. Mention the wedding when booking.", "url": "https://example.com/hotel" }
+    ],
+    "faq": [
+      { "q": "Are children welcome?", "a": "Please check your invitation for details on who is invited." },
+      { "q": "What if it rains?", "a": "We have a beautiful indoor backup. Check the Updates tab for any changes." },
+      { "q": "Will there be shuttles?", "a": "Yes. Times will be posted on the Updates tab closer to the weekend." }
+    ],
+    "contact": { "label": "Questions this weekend?", "detail": "Text our point person at (555) 010-0100." },
+    "updates": [
+      { "id": "u1", "at": "2027-05-01T09:00:00-04:00", "message": "Shuttle schedule will be posted here one week before the wedding." }
+    ]
+  },
+  "events": [
+    {
+      "id": "welcome",
+      "name": "Welcome Drinks",
+      "start": "2027-06-11T18:00:00-04:00",
+      "end": "2027-06-11T20:30:00-04:00",
+      "venue": "The Garden Terrace",
+      "address": "100 Example Street, Sampleville, NY 10001",
+      "dressCode": "Smart Casual",
+      "dressNotes": "Linen shirts, sundresses, jumpsuits. Comfortable shoes for the lawn.",
+      "description": "Light bites and drinks to kick off the weekend."
+    },
+    {
+      "id": "ceremony",
+      "name": "Ceremony",
+      "start": "2027-06-12T16:00:00-04:00",
+      "end": "2027-06-12T16:45:00-04:00",
+      "venue": "Rosewood Chapel",
+      "address": "200 Example Avenue, Sampleville, NY 10001",
+      "dressCode": "Black Tie Optional",
+      "dressNotes": "Tuxedos or dark suits; floor-length or formal cocktail dresses.",
+      "description": "Please be seated by 3:45 PM."
+    },
+    {
+      "id": "reception",
+      "name": "Cocktail Hour & Reception",
+      "start": "2027-06-12T17:00:00-04:00",
+      "end": "2027-06-12T23:30:00-04:00",
+      "venue": "The Grand Ballroom",
+      "address": "300 Example Boulevard, Sampleville, NY 10001",
+      "dressCode": "Black Tie Optional",
+      "dressNotes": "Dancing shoes encouraged.",
+      "description": "Dinner, toasts, and dancing."
+    },
+    {
+      "id": "brunch",
+      "name": "Farewell Brunch",
+      "start": "2027-06-13T10:00:00-04:00",
+      "end": "2027-06-13T12:30:00-04:00",
+      "venue": "The Garden Terrace",
+      "address": "100 Example Street, Sampleville, NY 10001",
+      "dressCode": "Casual",
+      "dressNotes": "Come as you are.",
+      "description": "One last goodbye over coffee and brunch."
+    }
+  ],
+  "guests": [
+    { "id": "g1", "name": "Alex Rivera", "aliases": ["Alexander Rivera"], "householdId": "h1", "invited": ["welcome", "ceremony", "reception", "brunch"] },
+    { "id": "g2", "name": "Jordan Rivera", "aliases": [], "householdId": "h1", "invited": ["welcome", "ceremony", "reception"] },
+    { "id": "g3", "name": "María José García", "aliases": ["Maria Garcia"], "householdId": "h2", "invited": ["ceremony", "reception"] },
+    { "id": "g4", "name": "Taylor O'Brien", "aliases": ["Tay O'Brien"], "householdId": "h3", "invited": ["welcome", "ceremony", "reception", "brunch"] },
+    { "id": "g5", "name": "Sam Chen", "aliases": [], "householdId": "h4", "invited": ["ceremony"] },
+    { "id": "g6", "name": "Sam Chan", "aliases": [], "householdId": "h5", "invited": ["ceremony", "reception"] }
+  ]
+}
