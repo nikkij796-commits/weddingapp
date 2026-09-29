@@ -14,6 +14,7 @@ const MAX_AGE = 1000 * 60 * 60 * 24 * 14;
 
 let payload: GuestPayload | null = null;
 let tab: TabId = 'weekend';
+let jumpedToToday = false;
 
 function load(): GuestPayload | null {
   try {
@@ -100,6 +101,10 @@ function showApp() {
   if (!payload) return showGate();
   const p = payload;
   root.innerHTML = renderApp(p, tab, new Date());
+  if (tab === 'weekend' && !jumpedToToday) {
+    jumpedToToday = true; // on the weekend itself, open at today's schedule
+    root.querySelector('[data-today]')?.scrollIntoView({ block: 'start' });
+  }
   root.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach((b) =>
     b.addEventListener('click', () => {
       tab = b.dataset.tab as TabId;

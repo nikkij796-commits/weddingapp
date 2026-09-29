@@ -29,15 +29,15 @@ export function renderGate(error = ''): string {
   return `
   <main class="gate">
     <div class="gate-card"><div class="gate-inner">
-      <p class="eyebrow">You're invited</p>
+      <p class="eyebrow">Wedding weekend guide</p>
       <h1 class="monogram">N &amp; S</h1>
       ${RULE}
       <p class="lede">Enter your name and wedding code to see your weekend.</p>
       <form id="gate-form" novalidate>
         <label for="name">Your name</label>
-        <input id="name" name="name" autocomplete="name" placeholder="As shown on your invitation" required />
+        <input id="name" name="name" autocomplete="name" placeholder="First and last name" required />
         <label for="code">Wedding code</label>
-        <input id="code" name="code" autocomplete="off" autocapitalize="characters" placeholder="Printed on your invitation" required />
+        <input id="code" name="code" autocomplete="off" autocapitalize="characters" placeholder="Code from your invitation" required />
         <p id="gate-error" class="error" role="alert" ${error ? '' : 'hidden'}>${esc(error)}</p>
         <button type="submit" class="btn">Unlock my weekend</button>
       </form>
@@ -51,7 +51,7 @@ export function renderPartyPicker(name: string, choices: { index: number; label:
     <div class="gate-card"><div class="gate-inner">
       <p class="eyebrow">One quick step</p>
       <h1 class="picker-title">Select your party</h1>
-      <p class="lede">More than one invitation includes the name &ldquo;${esc(name)}&rdquo;. Which one is yours?</p>
+      <p class="lede">More than one party includes the name &ldquo;${esc(name)}&rdquo;. Which one is yours?</p>
       <div class="party-list">
         ${choices.map((c) => `<button type="button" class="party" data-pick="${c.index}">${esc(c.label)}</button>`).join('')}
       </div>
@@ -90,6 +90,7 @@ export function renderEvent(e: EventInfo, tz: string, now: Date): string {
       <h3>${esc(e.name)} ${badge}</h3>
       ${RULE}
       ${e.description ? `<p class="desc">${esc(e.description)}</p>` : ''}
+      ${e.moments?.length ? `<ul class="moments">${e.moments.map((m) => `<li><b>${esc(m.time)}</b> ${esc(m.label)}</li>`).join('')}</ul>` : ''}
       <p class="venue"><strong>${esc(e.venue)}</strong><br>${esc(e.address)}</p>
       ${e.dressCode ? `<p class="dress"><span class="label">Attire</span><span class="attire">${esc(e.dressCode)}</span>${e.dressNotes ? `<br><span class="muted">${esc(e.dressNotes)}</span>` : ''}</p>` : ''}
       <div class="actions">
@@ -112,12 +113,12 @@ export function renderWeekend(p: GuestPayload, now: Date): string {
     ${p.content.tagline ? `<p class="tagline">${esc(p.content.tagline)}</p>` : ''}
     ${renderCountdown(p, now)}
     <p class="welcome">${esc(p.content.welcome)}</p>
-    ${others.length ? `<p class="household">Also on your invitation: ${esc(others.join(', '))}</p>` : ''}
+    ${others.length ? `<p class="household">Your party: ${esc(others.join(', '))}</p>` : ''}
     ${DESERT_SCENE}
   </section>
   ${
     days.length
-      ? days.map((d) => `<section class="day"><h2>${esc(d.day)}</h2>${d.events.map((e) => renderEvent(e, tz, now)).join('')}</section>`).join('')
+      ? days.map((d) => `<section class="day"${d.day === formatDay(now.toISOString(), tz) ? ' data-today' : ''}><h2>${esc(d.day)}${d.day === formatDay(now.toISOString(), tz) ? ' <span class="today">Today</span>' : ''}</h2>${d.events.map((e) => renderEvent(e, tz, now)).join('')}</section>`).join('')
       : '<p class="empty">Your schedule will appear here soon.</p>'
   }`;
 }

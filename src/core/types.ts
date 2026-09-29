@@ -9,6 +9,8 @@ export interface EventInfo {
   dressCode: string;
   dressNotes: string;
   description: string;
+  /** Optional run-of-show lines shown on the card, e.g. { time: "9:00 AM", label: "Baraat" }. */
+  moments?: { time: string; label: string }[];
   /** Date is known but the time isn't: shown as "Time to be announced", no calendar buttons, no countdown. */
   timeTbd?: boolean;
   /** Publish-time rule: every guest is invited (used for events with no column in the guest sheet). */

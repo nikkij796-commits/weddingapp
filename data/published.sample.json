@@ -4,7 +4,7 @@
     "coupleNames": "N & S",
     "tagline": "SAMPLE DATA: replace by running the publish command",
     "timezone": "America/New_York",
-    "welcome": "Welcome, and thank you for celebrating with us. Everything you need for the weekend is right here, tailored to the events on your invitation.",
+    "welcome": "Your guide to the weekend: where to be, when, and what to wear. Check Updates for any changes.",
     "faq": [
       {
         "q": "What's the weather like?",
@@ -45,7 +45,7 @@
       "address": "100 Example Street, Sampleville, NY 10001",
       "dressCode": "Smart Casual",
       "dressNotes": "Linen shirts, sundresses, jumpsuits. Comfortable shoes for the lawn.",
-      "description": "Light bites and drinks to kick off the weekend."
+      "description": "Drinks and light bites."
     },
     {
       "id": "ceremony",
@@ -56,7 +56,17 @@
       "address": "200 Example Avenue, Sampleville, NY 10001",
       "dressCode": "Black Tie Optional",
       "dressNotes": "Tuxedos or dark suits; floor-length or formal cocktail dresses.",
-      "description": "Please be seated by 3:45 PM."
+      "description": "",
+      "moments": [
+        {
+          "time": "3:45 PM",
+          "label": "Seating"
+        },
+        {
+          "time": "4:00 PM",
+          "label": "Ceremony"
+        }
+      ]
     },
     {
       "id": "reception",
@@ -67,7 +77,7 @@
       "address": "300 Example Boulevard, Sampleville, NY 10001",
       "dressCode": "Black Tie Optional",
       "dressNotes": "Dancing shoes encouraged.",
-      "description": "Dinner, toasts, and dancing."
+      "description": "Dinner and dancing."
     },
     {
       "id": "brunch",
@@ -78,7 +88,7 @@
       "address": "100 Example Street, Sampleville, NY 10001",
       "dressCode": "",
       "dressNotes": "",
-      "description": "One last goodbye over coffee and brunch.",
+      "description": "",
       "timeTbd": true
     }
   ],

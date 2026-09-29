@@ -66,7 +66,7 @@ test.describe('personalized experience', () => {
   test('household sees shared itinerary and members', async ({ page }) => {
     await unlock(page, 'Jordan Rivera');
     await expect(page.locator('[data-event]')).toHaveCount(4);
-    await expect(page.getByText('Also on your invitation: Alex Rivera')).toBeVisible();
+    await expect(page.getByText('Your party: Alex Rivera')).toBeVisible();
   });
 
   test('event card has attire, maps and calendar actions', async ({ page }) => {
@@ -132,7 +132,7 @@ test.describe('select your party', () => {
   test('picking the other party shows its household', async ({ page }) => {
     await unlock(page, 'Pat Kim');
     await page.locator('[data-pick="0"]').click();
-    await expect(page.getByText('Also on your invitation: Lee Kim')).toBeVisible();
+    await expect(page.getByText('Your party: Lee Kim')).toBeVisible();
     await expect(page.locator('[data-event]')).toHaveCount(1);
   });
 
@@ -155,6 +155,37 @@ test.describe('select your party', () => {
     const small = await page.$$eval('.party', (els) => els.filter((e) => e.getBoundingClientRect().height < 44).length);
     expect(small).toBe(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
+  });
+});
+
+test.describe('guide behavior', () => {
+  test('run-of-show lines are on the card', async ({ page }) => {
+    await unlock(page, 'Sam Chen');
+    const card = page.locator('[data-event=ceremony]');
+    await expect(card.locator('.moments li')).toHaveText(['3:45 PM Seating', '4:00 PM Ceremony']);
+  });
+
+  test('on the weekend, the app opens at today and marks it', async ({ page }) => {
+    await page.clock.install({ time: new Date('2027-06-12T12:00:00-04:00') });
+    await unlock(page, 'Alex Rivera');
+    await expect(page.locator('.today')).toHaveText('Today');
+    await expect(page.locator('[data-today] h2')).toContainText('Saturday, June 12');
+    await expect(page.locator('[data-today] h2')).toBeInViewport();
+    await expect(page.getByRole('heading', { name: /Friday, June 11/ })).not.toBeInViewport();
+  });
+
+  test('before the weekend there is no Today marker and the page starts at the top', async ({ page }) => {
+    await page.clock.install({ time: new Date('2027-05-01T12:00:00-04:00') });
+    await unlock(page, 'Alex Rivera');
+    await expect(page.locator('.hero')).toBeVisible();
+    await expect(page.locator('.today')).toHaveCount(0);
+    expect(await page.evaluate(() => window.scrollY)).toBe(0);
+  });
+
+  test('gate reads as a guide, not an invitation', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.getByText('Wedding weekend guide')).toBeVisible();
+    expect((await page.content()).toLowerCase()).not.toContain("you're invited");
   });
 });
 

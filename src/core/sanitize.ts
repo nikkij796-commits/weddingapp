@@ -57,6 +57,12 @@ export function pickEvents(raw: unknown): EventInfo[] {
     dressNotes: str(e?.dressNotes),
     description: str(e?.description),
     };
+    if (Array.isArray(e?.moments)) {
+      const m = e.moments
+        .map((x: any) => ({ time: str(x?.time), label: str(x?.label) }))
+        .filter((x: { time: string; label: string }) => x.time && x.label);
+      if (m.length) out.moments = m;
+    }
     if (e?.timeTbd === true) out.timeTbd = true;
     if (e?.everyone === true) out.everyone = true;
     return out;

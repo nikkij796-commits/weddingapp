@@ -194,3 +194,22 @@ describe('aliases, everyone-events and undecided times', () => {
     expect(() => make()).not.toThrow();
   });
 });
+
+describe('event moments (run-of-show lines)', () => {
+  it('keeps well-formed moments and drops empty or malformed ones', () => {
+    const [e] = pickEvents([{ ...base.events[0], moments: [{ time: '9:00 AM', label: 'Baraat' }, { time: '', label: 'x' }, { label: 'no time' }, null, { time: '10:00 AM', label: ' Ceremony ' }] }]);
+    expect(e.moments).toEqual([{ time: '9:00 AM', label: 'Baraat' }, { time: '10:00 AM', label: 'Ceremony' }]);
+  });
+  it('omits the field when there are none', () => {
+    expect(pickEvents([{ ...base.events[0], moments: [] }])[0].moments).toBeUndefined();
+    expect(pickEvents([{ ...base.events[0], moments: 'nope' }])[0].moments).toBeUndefined();
+  });
+  it('ignores extra keys inside moments', () => {
+    const [e] = pickEvents([{ ...base.events[0], moments: [{ time: '1 PM', label: 'x', cost: 500 }] }]);
+    expect(JSON.stringify(e)).not.toContain('500');
+  });
+  it('scans moments text for private terms too', () => {
+    const events = [{ ...base.events[0], moments: [{ time: '1 PM', label: 'Vendor load-in' }] }];
+    expect(() => buildPublished({ code: 'ABCD1', events, content: base.content, guestsCsv: 'Name\nA B' })).toThrow(/vendor/i);
+  });
+});

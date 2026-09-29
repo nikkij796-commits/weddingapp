@@ -40,7 +40,7 @@ describe('personalized weekend', () => {
   it('greets by first name and lists household', () => {
     const h = renderWeekend(payloadFor('Jordan Rivera'), before);
     expect(h).toContain('Welcome, Jordan');
-    expect(h).toContain('Also on your invitation: Alex Rivera');
+    expect(h).toContain('Your party: Alex Rivera');
   });
   it('includes time, venue, dress code, maps and calendar per event', () => {
     const h = renderWeekend(payloadFor('Sam Chen'), before);
@@ -145,5 +145,39 @@ describe('greeting with titles (real guest lists have them)', () => {
     const h = renderWeekend(p, before);
     expect(h).toContain('Welcome, Neel');
     expect(h).not.toContain('Welcome, Dr');
+  });
+});
+
+describe('guide features: moments and Today', () => {
+  const p = payloadFor('Alex Rivera');
+  it('shows run-of-show lines on the card', () => {
+    const h = renderWeekend(p, before);
+    expect(h).toContain('<ul class="moments">');
+    expect(h).toContain('<b>3:45 PM</b> Seating');
+    expect(h).toContain('<b>4:00 PM</b> Ceremony');
+  });
+  it('omits the list when an event has no moments', () => {
+    const h = renderWeekend(p, before);
+    const welcome = h.slice(h.indexOf('data-event="welcome"'), h.indexOf('data-event="ceremony"'));
+    expect(welcome).not.toContain('moments');
+  });
+  it('marks only the current day as Today', () => {
+    const h = renderWeekend(p, new Date('2027-06-12T10:00:00-04:00'));
+    expect(h.match(/data-today/g)).toHaveLength(1);
+    expect(h.slice(h.indexOf('data-today'))).toMatch(/Saturday, June 12 <span class="today">Today/);
+  });
+  it('has no Today marker before or after the weekend', () => {
+    expect(renderWeekend(p, before)).not.toContain('data-today');
+    expect(renderWeekend(p, new Date('2027-07-01T12:00:00-04:00'))).not.toContain('data-today');
+  });
+  it('uses the wedding timezone for "today", not the viewer’s', () => {
+    // 03:00 UTC on Jun 13 is still Saturday evening in New York
+    const h = renderWeekend(p, new Date('2027-06-13T03:00:00Z'));
+    expect(h).toMatch(/Saturday, June 12 <span class="today">/);
+  });
+  it('writes guide copy, not invitation copy', () => {
+    const h = renderGate() + renderWeekend(p, before);
+    expect(h).not.toMatch(/warmly|request the pleasure|you're invited|invite you/i);
+    expect(h).toContain('Wedding weekend guide');
   });
 });
