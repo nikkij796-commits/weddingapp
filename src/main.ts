@@ -14,9 +14,46 @@ import type { Outcome } from './core/vault';
 import { eventDays } from './core/weather';
 import { loadWeather } from './core/weatherClient';
 import { ALL_TABS, renderApp, renderGate, renderPartyPicker, renderProblem, type TabId, type WeatherState } from './ui/render';
-import { renderWeatherBody } from './ui/pages';
+import { renderInstall, renderWeatherBody } from './ui/pages';
+import { installKind } from './core/install';
 
 const root = document.getElementById('root')!;
+
+// ---------- add to home screen ----------
+type InstallPromptEvent = Event & { prompt: () => Promise<void>; userChoice?: Promise<{ outcome: string }> };
+let installPrompt: InstallPromptEvent | null = null;
+let installed = false;
+const INSTALL_KEY = 'wedding.install';
+const isStandalone = () => window.matchMedia?.('(display-mode: standalone)').matches || (navigator as { standalone?: boolean }).standalone === true;
+const currentInstallKind = () =>
+  installed
+    ? 'none'
+    : installKind({ ua: navigator.userAgent, standalone: isStandalone(), canPrompt: !!installPrompt, touchMac: navigator.maxTouchPoints > 1 });
+function installDismissed(): boolean {
+  try {
+    return localStorage.getItem(INSTALL_KEY) === 'dismissed';
+  } catch {
+    return false;
+  }
+}
+/** Fills the Weekend card (unless dismissed) and the More section with the right help for this phone. */
+function paintInstall() {
+  const kind = currentInstallKind();
+  const card = document.getElementById('install-slot');
+  if (card) card.innerHTML = installDismissed() ? '' : renderInstall(kind, 'card');
+  const more = document.getElementById('install-more');
+  if (more) more.innerHTML = renderInstall(kind, 'more');
+}
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault(); // show our own button instead of the browser's mini-bar
+  installPrompt = e as InstallPromptEvent;
+  paintInstall();
+});
+window.addEventListener('appinstalled', () => {
+  installed = true;
+  installPrompt = null;
+  paintInstall();
+});
 
 // ---------- appearance (Auto follows the phone; Light/Dark are remembered on this device) ----------
 type Theme = 'auto' | 'light' | 'dark';
@@ -163,6 +200,7 @@ function showApp() {
     }),
   );
   applyTheme(savedTheme()); // marks the selected Appearance button
+  paintInstall();
   if (tab === 'weather') void refreshWeather();
   document.getElementById('signout')?.addEventListener('click', signOut);
 }
@@ -310,9 +348,24 @@ function focusPins(letters: string[], scrollPage: boolean) {
 
 // One delegated listener for actions inside pages that re-render (jump links, copy code, weather retry, map, calendar).
 root.addEventListener('click', async (ev) => {
-  const el = (ev.target as HTMLElement).closest<HTMLElement>('[data-jump],[data-copy],[data-retry],[data-cal],[data-pin],[data-mapzoom],[data-mapfocus],[data-theme-set]');
+  const el = (ev.target as HTMLElement).closest<HTMLElement>('[data-jump],[data-copy],[data-retry],[data-cal],[data-pin],[data-mapzoom],[data-mapfocus],[data-theme-set],[data-install],[data-install-dismiss]');
   if (!el) return;
-  if (el.dataset.themeSet) {
+  if (el.hasAttribute('data-install')) {
+    const p = installPrompt;
+    if (!p) return;
+    installPrompt = null; // a prompt can only be shown once
+    await p.prompt();
+    const choice = await p.userChoice?.catch(() => null);
+    if (choice?.outcome === 'accepted') installed = true;
+    paintInstall();
+  } else if (el.hasAttribute('data-install-dismiss')) {
+    try {
+      localStorage.setItem(INSTALL_KEY, 'dismissed');
+    } catch {
+      /* private mode: hide for this visit */
+    }
+    document.getElementById('install-slot')?.replaceChildren();
+  } else if (el.dataset.themeSet) {
     const t = el.dataset.themeSet as Theme;
     try {
       if (t === 'auto') localStorage.removeItem(THEME_KEY);

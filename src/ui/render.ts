@@ -176,6 +176,7 @@ export function renderWeekend(p: GuestPayload, now: Date): string {
     ${datable > 1 ? `<button type="button" class="cal-all" data-cal="all">${ICON_CAL} Add all ${datable} events to my calendar</button>` : ''}
     ${p.cover ? '' : DESERT_SCENE}
   </section>
+  <div id="install-slot"></div>
   ${
     days.length
       ? dayStrip(days.map(ymd), 'day') +

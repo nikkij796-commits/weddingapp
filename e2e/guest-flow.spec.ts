@@ -296,3 +296,58 @@ test.describe('on an iPhone or Mac', () => {
     expect(fs.readFileSync((await dl.path())!, 'utf8')).toContain('SUMMARY:Ceremony');
   });
 });
+
+test.describe('add to home screen', () => {
+  const firePrompt = (page: import('@playwright/test').Page) =>
+    page.evaluate(() => {
+      const e = new Event('beforeinstallprompt', { cancelable: true }) as Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: string }> };
+      e.prompt = async () => void ((window as unknown as { __prompted: number }).__prompted = 1);
+      e.userChoice = Promise.resolve({ outcome: 'accepted' });
+      window.dispatchEvent(e);
+    });
+
+  test('where the browser offers it, one tap opens its install dialog, and the card goes away once installed', async ({ page }) => {
+    await unlock(page, 'Alex Rivera');
+    await expect(page.locator('#install-slot .install')).toHaveAttribute('data-install-kind', 'manual');
+    await firePrompt(page);
+    const card = page.locator('#install-slot .install');
+    await expect(card).toHaveAttribute('data-install-kind', 'prompt');
+    await card.getByRole('button', { name: 'Add to home screen' }).click();
+    expect(await page.evaluate(() => (window as unknown as { __prompted?: number }).__prompted)).toBe(1);
+    await expect(page.locator('#install-slot .install')).toHaveCount(0);
+  });
+
+  test('"Not now" is remembered, and More still offers it', async ({ page }) => {
+    await unlock(page, 'Alex Rivera');
+    await page.locator('#install-slot').getByRole('button', { name: 'Not now' }).click();
+    await expect(page.locator('#install-slot .install')).toHaveCount(0);
+    await page.reload();
+    await expect(page.locator('.tabs')).toBeVisible();
+    await expect(page.locator('#install-slot .install')).toHaveCount(0);
+    await page.locator('.tabs button', { hasText: 'More' }).click();
+    await expect(page.locator('#install-more .install')).toContainText('Add to home screen');
+  });
+
+  test('opened from the home screen: nothing is offered', async ({ page }) => {
+    await page.addInitScript(() => {
+      const real = window.matchMedia.bind(window);
+      window.matchMedia = (q: string) => (q.includes('display-mode: standalone') ? ({ matches: true, media: q, addEventListener() {}, removeEventListener() {} } as unknown as MediaQueryList) : real(q));
+    });
+    await unlock(page, 'Alex Rivera');
+    await expect(page.locator('.tabs')).toBeVisible();
+    await expect(page.locator('.install')).toHaveCount(0);
+    await page.locator('.tabs button', { hasText: 'More' }).click();
+    await expect(page.locator('.install')).toHaveCount(0);
+  });
+});
+
+test.describe('add to home screen on an iPhone', () => {
+  test.use({ userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1' });
+  test('shows the Share steps', async ({ page }) => {
+    await unlock(page, 'Alex Rivera');
+    const card = page.locator('#install-slot .install');
+    await expect(card).toHaveAttribute('data-install-kind', 'ios');
+    await expect(card).toContainText('Add to Home Screen');
+    await expect(card.locator('.install-steps li')).toHaveCount(3);
+  });
+});

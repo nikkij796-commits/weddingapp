@@ -22,6 +22,8 @@ Mobile-first, installable (PWA) guest site. Guests enter their **name + wedding 
 ## Pages and what feeds them
 Cover: put the invitation cover at `data/raw/cover.jpg` (never committed). Publishing encrypts it into the vault (`img/cover.json`), so only guests who unlock can see it; it then replaces the drawn header at the top of the guide.
 
+Home screen: after signing in, Weekend shows a "Keep this guide on your home screen" card (Android/Chrome: one-tap install; iPhone: Share, Add to Home Screen; others: browser menu). "Not now" is remembered; More always offers it until installed. Icons are PNGs in `public/` made by `node scripts/make-icons.mjs`.
+
 Appearance: the guide follows the phone's light/dark setting; guests can pick Light or Dark under More (remembered on that phone).
 
 Weekend: during the weekend (from 24 hours before the guest's first event) the top shows **Happening now / Up next / Next meal**; before that, a countdown. "Add all N events to my calendar" downloads one calendar file. Each event has one **Directions** button (Apple Maps on iPhone/Mac, Google Maps elsewhere) and one **Add to calendar** button (calendar file on iPhone/Mac, Google Calendar elsewhere).

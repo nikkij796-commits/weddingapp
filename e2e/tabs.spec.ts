@@ -347,7 +347,7 @@ test.describe('day strip', () => {
 
 test.describe('dark mode', () => {
   const pages = ['Weekend', 'Meals', 'Rides', 'Hotel map', 'Weather', 'Program', 'FAQ', 'Updates'] as const;
-  const selectors = ['.chip', '.jump button', '.menu-card b', '.soon-panel h3', '.card h3', '.card p', '.meal .time', '.pill', '.nn-row b', '.nn-tag', '.where-btn b', '.where-area', '.event h3', '.event .attire', '.event .area', '.page-head h2', '.day > h2', '.wx-cond', '.wx-tip', '.faq summary', '.seg button', '.cal-all', '.eyebrow'];
+  const selectors = ['.chip', '.jump button', '.menu-card b', '.soon-panel h3', '.card h3', '.card p', '.meal .time', '.pill', '.nn-row b', '.nn-tag', '.where-btn b', '.where-area', '.event h3', '.event .attire', '.event .area', '.page-head h2', '.day > h2', '.wx-cond', '.wx-tip', '.faq summary', '.seg button', '.cal-all', '.eyebrow', '.install h3', '.install p', '.install-later'];
 
   test('follows the phone setting, and every page stays readable', async ({ page }) => {
     await page.emulateMedia({ colorScheme: 'dark' });

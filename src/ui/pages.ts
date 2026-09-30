@@ -1,3 +1,4 @@
+import type { InstallKind } from '../core/install';
 import { directionsUrl, uberRideUrl } from '../core/links';
 import { areaSpots, mealRows, type MealRow } from '../core/plan';
 import { formatDay, formatTime, groupByDay, sortEvents } from '../core/time';
@@ -66,11 +67,32 @@ const BASE = (import.meta.env?.BASE_URL as string | undefined) ?? '/';
 
 // ---------- More menu ----------
 
+// ---------- Add to home screen ----------
+
+const SHARE_ICON = '<svg class="share-ico" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M8 7l4-4 4 4"/><path d="M6 11H5v10h14V11h-1"/></svg>';
+
+/** "Keep this guide on your home screen": a dismissible card on Weekend, or a permanent section under More. */
+export function renderInstall(kind: InstallKind, place: 'card' | 'more'): string {
+  if (kind === 'none') return '';
+  const body =
+    kind === 'prompt'
+      ? '<p>Open it in one tap all weekend, even with poor signal.</p><div class="install-actions"><button type="button" class="btn install-go" data-install>Add to home screen</button></div>'
+      : kind === 'ios'
+        ? `<ol class="install-steps"><li>Tap <b>Share</b> ${SHARE_ICON} in your browser.</li><li>Choose <b>Add to Home Screen</b>.</li><li>Open it from your home screen and enter your name and code once more.</li></ol>`
+        : '<p>Open your browser&rsquo;s menu and choose <b>Add to Home screen</b> or <b>Install</b>. Then it opens in one tap all weekend.</p>';
+  return `<section class="install ${place === 'card' ? 'install-card' : 'install-more'}" data-install-kind="${kind}" aria-labelledby="install-h-${place}">
+    <h3 id="install-h-${place}">${place === 'card' ? 'Keep this guide on your home screen' : 'Add to home screen'}</h3>
+    ${body}
+    ${place === 'card' ? '<button type="button" class="link install-later" data-install-dismiss>Not now</button>' : ''}
+  </section>`;
+}
+
 export function renderMore(): string {
   return `${head('More')}
   <div class="menu-grid">
     ${MORE_ITEMS.map((m) => `<button type="button" class="menu-card" data-tab="${m.id}"><span class="menu-icon">${m.icon}</span><span class="menu-text"><b>${esc(m.title)}</b><small>${esc(m.blurb)}</small></span><span class="chev" aria-hidden="true">&rsaquo;</span></button>`).join('')}
   </div>
+  <div id="install-more"></div>
   <section class="theme-switch" aria-labelledby="theme-h"><h3 id="theme-h">Appearance</h3>
     <div class="seg" role="group" aria-labelledby="theme-h">
       <button type="button" data-theme-set="auto">Auto</button><button type="button" data-theme-set="light">Light</button><button type="button" data-theme-set="dark">Dark</button>
