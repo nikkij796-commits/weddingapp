@@ -4,7 +4,7 @@
  * (payload.ts) so an old or partial copy of the data can never crash a page.
  * (Kept free of the forbidden-term list so it can ship in the browser bundle.)
  */
-import type { Content, EventInfo } from './types';
+import type { Content, EventInfo, MealItem } from './types';
 
 export const str = (v: unknown, fallback = ''): string => (typeof v === 'string' ? v.trim() : fallback);
 
@@ -55,11 +55,12 @@ export function pickContent(raw: any): Content {
       intro: str(raw?.meals?.intro),
       items: list(raw?.meals?.items)
         .map((x: any) => {
-          const item: Content['meals']['items'][number] = { eventId: str(x?.eventId), label: str(x?.label) };
-          for (const k of ['time', 'menu', 'notes'] as const) if (str(x?.[k])) item[k] = str(x[k]);
+          const item: MealItem = { label: str(x?.label) };
+          // Values are kept as written so publish-time validation can reject typos; `menu` is never read.
+          for (const k of ['eventId', 'date', 'start', 'end', 'time', 'place', 'jain', 'notes'] as const) if (str(x?.[k])) (item as unknown as Record<string, string>)[k] = str(x[k]);
           return item;
         })
-        .filter((x) => x.eventId && x.label),
+        .filter((x) => x.label && (x.eventId || x.date)),
     },
     rides: {
       intro: str(raw?.rides?.intro),

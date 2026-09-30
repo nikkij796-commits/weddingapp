@@ -14,7 +14,7 @@ Mobile-first, installable (PWA) guest site. Guests enter their **name + wedding 
 ## Updating content (publish step)
 1. Export from Drive into `data/raw/`: `guests.csv`, `events.json`, `content.json`, and optionally `aliases.json` (see `data/published.sample.json` for shapes).
    - Guest sheet: either one guest per row (`Name`, `Aliases`, `Household`) or one household per row (`Guest 1 name` ... `Guest N name`), then one TRUE/FALSE or Yes/No column per event (header = event id or name). Everyone on a row shares an itinerary. Email, phone, hotel, RSVP odds, notes and every other column are ignored and never published.
-   - Events with `"everyone": true` are given to every guest (no sheet column needed). Events with `"timeTbd": true` show "Time to be announced" with no calendar buttons or countdown. An empty `dressCode` hides the attire line.
+   - Events with `"everyone": true` are given to every guest (no sheet column needed). Events with `"timeTbd": true` show "Time to be announced" with no calendar buttons or countdown. An empty `dressCode` hides the attire line. `address` may be empty (shows "Address to be announced", no map or Uber buttons). `area` is where on the property, e.g. `Cholla Lawn (D)`; letters in brackets match the resort map and a caption explains them.
    - `aliases.json` maps a name exactly as written in the sheet to extra names a guest may type, e.g. `{ "Ms. Nikita Jain": ["Nikki Jain"] }`.
 2. Run `WEDDING_CODE=<code> npm run publish:data`. It is **blocked** if copy mentions budget, contract, vendor, invoice, deposit, payment, large dollar amounts, etc.
 3. Commit `public/vault/` and push (see Hosting).
@@ -25,9 +25,9 @@ Bottom bar: **Weekend, Program, Meals, Rides, More**. More opens **Weather, Hote
 | Field in `content.json` | Page | Notes |
 | --- | --- | --- |
 | `program: { intro, sections: [{title, body}] }` | Program | Empty = placeholder. Blank lines in `body` make paragraphs. |
-| `meals: { intro, items: [{eventId, label, time?, menu?, notes?}] }` | Meals | Time and place come from the event; a guest only sees meals for events they're invited to. No `menu` shows "Menu to be announced". |
+| `meals: { intro, items: [{eventId or date, label, start?, end?, time?, place?, jain?, notes?}] }` | Meals | Names, times, places and dietary labels only (no menus). Use `eventId` to show a meal to everyone invited to that event, or `date` (`YYYY-MM-DD`) to show it to anyone with an event that day. `start`/`end` are local `HH:MM`; `time` is free text that replaces them (e.g. "During Haldi"). `place` overrides the event's place. `jain` is `full` ("Fully Jain") or `options` ("Jain options"). |
 | `rides: { intro, steps[], voucher: {code, note}, tips[] }` | Rides | Empty voucher = placeholder. Ride buttons open Uber with the destination filled in (every event venue and every map place). Dollar amounts are allowed here only. |
-| `map: { intro, imagePath?, imageAlt?, places: [{name, address, note?}] }` | Hotel map | Embeds a Google map of the first place. Put a property-map image in `public/` and set `imagePath` (e.g. `resort-map.png`). |
+| `map: { intro, imagePath?, imageAlt?, places: [{name, address, note?}] }` | Hotel map | Embeds a Google map of the first place. The property-map image lives in `public/` (currently `resort-map.jpg`); set `imagePath` to its filename. It scrolls sideways on phones and opens full size on tap. |
 | `weather: { place, latitude, longitude }` | Weather | Live from Open-Meteo. Within 15 days: the real forecast, with the temperature at each event's start. Earlier: "typical weather" averaged from the past 8 years, with the date the live forecast starts. Only the guest's own event days are shown. Needs internet; falls back to a saved copy. |
 
 ## Hosting: GitHub Pages

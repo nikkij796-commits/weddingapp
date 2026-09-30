@@ -101,11 +101,11 @@ export function renderEvent(e: EventInfo, tz: string, now: Date): string {
       ${RULE}
       ${e.description ? `<p class="desc">${esc(e.description)}</p>` : ''}
       ${e.moments?.length ? `<ul class="moments">${e.moments.map((m) => `<li><b>${esc(m.time)}</b> ${esc(m.label)}</li>`).join('')}</ul>` : ''}
-      <p class="venue"><strong>${esc(e.venue)}</strong>${e.area ? `<br><span class="area">${esc(e.area)}</span>` : ''}<br>${esc(e.address)}</p>
+      <p class="venue"><strong>${esc(e.venue)}</strong>${e.area ? `<br><span class="area">${esc(e.area)}</span>` : ''}<br>${e.address ? esc(e.address) : '<span class="tba">Address to be announced</span>'}</p>
       ${e.dressCode ? `<p class="dress"><span class="label">Attire</span><span class="attire">${esc(e.dressCode)}</span>${e.dressNotes ? `<br><span class="muted">${esc(e.dressNotes)}</span>` : ''}</p>` : ''}
       <div class="actions">
-        <a class="chip" href="${esc(googleMapsUrl(e))}" target="_blank" rel="noopener">Google Maps</a>
-        <a class="chip" href="${esc(appleMapsUrl(e))}" target="_blank" rel="noopener">Apple Maps</a>
+        ${e.address ? `<a class="chip" href="${esc(googleMapsUrl(e))}" target="_blank" rel="noopener">Google Maps</a>
+        <a class="chip" href="${esc(appleMapsUrl(e))}" target="_blank" rel="noopener">Apple Maps</a>` : ''}
         ${calendar}
       </div>
     </div></div>

@@ -67,10 +67,24 @@ test.describe('Meals', () => {
     await unlock(page, 'Alex Rivera');
     await openTab(page, 'Meals');
     await expect(page.locator('.day h2')).toHaveText(['Friday, June 11', 'Saturday, June 12', 'Sunday, June 13']);
-    await expect(page.locator('[data-meal=welcome]')).toContainText('Passed appetizers');
-    await expect(page.locator('[data-meal=reception]')).toContainText('7:00 PM');
-    await expect(page.locator('[data-meal=reception]')).toContainText('Menu to be announced');
-    await expect(page.locator('[data-meal=brunch]')).toContainText('Time to be announced');
+    const meal = (label: string) => page.locator(`[data-label="${label}"]`);
+    await expect(meal('Welcome drinks & bites')).toContainText('Jain options');
+    await expect(meal('Afternoon snacks')).toContainText('3:00 PM');
+    await expect(meal('Afternoon snacks')).toContainText('Main Lawn');
+    await expect(meal('Dinner')).toContainText('7:00 PM');
+    await expect(meal('Dinner')).toContainText('Fully Jain');
+    await expect(meal('Cocktail hour')).toContainText('Just before dinner');
+    await expect(meal('Farewell brunch')).toContainText('Time to be announced');
+    await expect(page.locator('body')).not.toContainText('Menu to be announced');
+    await expect(page.locator('.jain-legend')).toBeVisible();
+  });
+  test('meals on a day are in time order', async ({ page }) => {
+    await unlock(page, 'Alex Rivera');
+    await openTab(page, 'Meals');
+    const labels = await page.locator('[data-meal]').evaluateAll((els) => els.map((e) => e.getAttribute('data-label')));
+    expect(labels.indexOf('Welcome drinks & bites')).toBeGreaterThan(labels.indexOf('Afternoon snacks'));
+    expect(labels.indexOf('Dinner')).toBeGreaterThan(labels.indexOf('Cocktail hour') - 1);
+    expect(labels.at(-1)).toBe('Farewell brunch');
   });
   test('a guest with no meals sees the placeholder', async ({ page }) => {
     await unlock(page, 'Sam Chen');
@@ -128,8 +142,7 @@ test.describe('Hotel map', () => {
     await expect(page.locator('.place')).toHaveCount(2);
     await expect(page.locator('.place').first().getByRole('link', { name: 'Google Maps' })).toHaveAttribute('href', /google\.com\/maps/);
     await expect(page.locator('.place').first().getByRole('link', { name: 'Uber' })).toHaveAttribute('href', /m\.uber\.com/);
-    await expect(page.getByText('Property Map')).toBeVisible();
-    await expect(page.getByText('where each lawn and hall is')).toBeVisible();
+    await expect(page.getByText('Property Map')).toBeVisible(); // sample data has no map image yet
   });
 });
 

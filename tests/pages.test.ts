@@ -66,44 +66,87 @@ describe('Program', () => {
 });
 
 describe('Meals', () => {
-  it('lists the guest\'s meals by day in time order with event context', () => {
+  const card = (h: string, label: string) => {
+    const i = h.indexOf(`data-label="${label}"`);
+    return h.slice(i, h.indexOf('</article>', i));
+  };
+  it('lists the guest\'s meals by day in time order', () => {
     const h = renderMeals(alex());
-    expect(h.indexOf('Welcome drinks &amp; bites')).toBeLessThan(h.indexOf('data-meal="reception"'));
-    expect(h).toContain('Friday, June 11');
-    expect(h).toContain('Saturday, June 12');
-    expect(h).toContain('Sunday, June 13');
-    expect(h).toContain('The Garden Terrace');
+    expect(h.indexOf('Friday, June 11')).toBeLessThan(h.indexOf('Saturday, June 12'));
+    expect(h.indexOf('Saturday, June 12')).toBeLessThan(h.indexOf('Sunday, June 13'));
   });
-  it('shows the menu, or "Menu to be announced"', () => {
+  it('orders meals within a day by their own start time, not the event\'s', () => {
     const h = renderMeals(alex());
-    expect(h).toContain('Passed appetizers and a signature cocktail');
-    expect(h).toContain('Menu to be announced');
+    // June 11: snacks start 15:00, the welcome event starts 18:00, so snacks come first
+    expect(h.indexOf('data-label="Afternoon snacks"')).toBeLessThan(h.indexOf('data-label="Welcome drinks &amp; bites"'));
   });
-  it('uses a custom time when given, the event time otherwise, and TBA for undecided events', () => {
+  it('shows a meal\'s own start and end times', () => {
+    expect(card(renderMeals(alex()), 'Dinner')).toContain('7:00 PM &ndash; 9:00 PM');
+    expect(card(renderMeals(alex()), 'Afternoon snacks')).toContain('3:00 PM &ndash; 4:00 PM');
+  });
+  it('uses free-text time when given, the event time otherwise, and TBA for undecided events', () => {
     const h = renderMeals(alex());
-    const card = (id: string) => h.slice(h.indexOf(`data-meal="${id}"`), h.indexOf('</article>', h.indexOf(`data-meal="${id}"`)));
-    expect(card('reception')).toContain('7:00 PM');
-    expect(card('welcome')).toContain('6:00 PM');
-    expect(card('brunch')).toContain('Time to be announced');
+    expect(card(h, 'Cocktail hour')).toContain('Just before dinner');
+    expect(card(h, 'Welcome drinks &amp; bites')).toContain('6:00 PM');
+    const tba = withContent(alex(), { meals: { intro: '', items: [{ eventId: 'brunch', label: 'Farewell brunch' }] } });
+    expect(card(renderMeals(tba), 'Farewell brunch')).toContain('Time to be announced');
   });
-  it('only shows meals for events the guest is invited to', () => {
-    const p = payloadFor('Maria Garcia'); // ceremony + reception only
-    const h = renderMeals(p);
-    expect(h).toContain('data-meal="reception"');
-    expect(h).not.toContain('data-meal="welcome"');
+  it('shows where: the meal\'s own place, else the event\'s lawn/hall, else the venue', () => {
+    const h = renderMeals(alex());
+    expect(card(h, 'Afternoon snacks')).toContain('Main Lawn');
+    expect(card(h, 'Welcome drinks &amp; bites')).toContain('Welcome Drinks &middot; Main Lawn');
+    expect(card(h, 'Farewell brunch')).toContain('The Garden Terrace');
+  });
+  it('labels each meal Fully Jain or Jain options, and nothing when not specified', () => {
+    const h = renderMeals(alex());
+    expect(card(h, 'Dinner')).toContain('<span class="pill full">Fully Jain</span>');
+    expect(card(h, 'Welcome drinks &amp; bites')).toContain('<span class="pill options">Jain options</span>');
+    expect(card(h, 'Farewell brunch')).not.toContain('pill');
+  });
+  it('explains the labels once, and only when a label is used', () => {
+    expect(renderMeals(alex())).toContain('class="jain-legend"');
+    const plain = withContent(alex(), { meals: { intro: '', items: [{ eventId: 'brunch', label: 'Farewell brunch' }] } });
+    expect(renderMeals(plain)).not.toContain('jain-legend');
+  });
+  it('never shows a menu line', () => {
+    const h = renderMeals(alex());
+    expect(h).not.toMatch(/Menu to be announced|class="menu/);
+    const sneaky = withContent(alex(), { meals: { intro: '', items: [{ eventId: 'welcome', label: 'Dinner', menu: 'Secret menu' } as any] } });
+    expect(renderMeals(sneaky)).not.toContain('Secret menu');
+  });
+  it('event meals show only for invitees of that event', () => {
+    const h = renderMeals(payloadFor('Maria Garcia')); // ceremony + reception only
+    expect(h).toContain('data-label="Dinner"');
+    expect(h).not.toContain('data-label="Welcome drinks');
     expect(h).not.toContain('Farewell brunch');
+  });
+  it('day meals show for anyone with an event that day, and only them', () => {
+    expect(renderMeals(alex())).toContain('data-label="Afternoon snacks"'); // has the June 11 welcome event
+    expect(renderMeals(payloadFor('Maria Garcia'))).not.toContain('Afternoon snacks'); // no event on June 11
+    expect(renderMeals(sam())).not.toContain('Afternoon snacks');
+  });
+  it('a day meal also reaches guests whose only event that day is a different event', () => {
+    const p = withContent(payloadFor('Maria Garcia'), { meals: { intro: '', items: [{ date: '2027-06-12', label: 'Day snack' }] } });
+    expect(renderMeals(p)).toContain('Day snack'); // her ceremony is on June 12
+  });
+  it('shows the snack with no time text when it has neither time nor start', () => {
+    const p = withContent(alex(), { meals: { intro: '', items: [{ date: '2027-06-11', label: 'Snack' }] } });
+    expect(card(renderMeals(p), 'Snack')).not.toContain('class="time"');
   });
   it('is a placeholder when the guest has no meals', () => expect(renderMeals(sam())).toContain('Meal Schedule'));
   it('is a placeholder when nothing is configured', () => expect(renderMeals(emptyContent(alex()))).toContain('Coming soon'));
-  it('ignores meals that point at unknown events', () => {
-    const p = withContent(alex(), { meals: { intro: '', items: [{ eventId: 'nope', label: 'Ghost' }] } });
-    expect(renderMeals(p)).not.toContain('Ghost');
+  it('ignores meals that point at unknown events or other days', () => {
+    const p = withContent(alex(), { meals: { intro: '', items: [{ eventId: 'nope', label: 'Ghost' }, { date: '2030-01-01', label: 'Phantom' }] } });
+    const h = renderMeals(p);
+    expect(h).not.toContain('Ghost');
+    expect(h).not.toContain('Phantom');
   });
   it('escapes text', () => {
-    const p = withContent(alex(), { meals: { intro: '', items: [{ eventId: 'welcome', label: '<img onerror=x>', menu: '"quoted"' }] } });
+    const p = withContent(alex(), { meals: { intro: '', items: [{ eventId: 'welcome', label: '<img onerror=x>', place: 'A & "B"', notes: '<b>n</b>' }] } });
     const h = renderMeals(p);
     expect(h).not.toContain('<img');
-    expect(h).toContain('&quot;quoted&quot;');
+    expect(h).not.toContain('<b>n</b>');
+    expect(h).toContain('A &amp; &quot;B&quot;');
   });
 });
 
@@ -315,6 +358,43 @@ describe('event area shows up everywhere an event location does', () => {
     const card = (id: string) => weekend.slice(weekend.indexOf(`data-event="${id}"`), weekend.indexOf('</article>', weekend.indexOf(`data-event="${id}"`)));
     expect(card('welcome')).toContain('<span class="area">Main Lawn</span>');
     expect(card('ceremony')).not.toContain('class="area"');
-    expect(renderMeals(alex())).toContain('Main Lawn, The Garden Terrace');
+    expect(renderMeals(alex())).toContain('Welcome Drinks &middot; Main Lawn');
+  });
+});
+
+describe('events with no address yet (e.g. Airbnb)', () => {
+  const airbnb = (): GuestPayload => {
+    const p = alex();
+    return { ...p, events: p.events.map((e) => (e.id === 'welcome' ? { ...e, venue: 'Airbnb', address: '', area: undefined } : e)) };
+  };
+  it('the event card says the address is to be announced and has no map buttons', () => {
+    const html = renderApp(airbnb(), 'weekend', before);
+    const card = html.slice(html.indexOf('data-event="welcome"'), html.indexOf('data-event="ceremony"'));
+    expect(card).toContain('Address to be announced');
+    expect(card).not.toContain('google.com/maps');
+    expect(card).not.toContain('maps.apple.com');
+  });
+  it('Rides has no Uber button for it, and the where-list says the address is coming', () => {
+    const p = airbnb();
+    expect(renderRides(p)).not.toContain('Airbnb');
+    expect(renderMap(p)).toContain('Airbnb &middot; address to be announced');
+  });
+});
+
+describe('resort-map letters', () => {
+  const lettered = (area: string | undefined): GuestPayload => {
+    const p = alex();
+    return { ...p, events: p.events.map((e) => (e.id === 'welcome' ? { ...e, area } : e)) };
+  };
+  it('adds the caption only when an area carries a map letter', () => {
+    expect(renderMap(lettered('Cholla Lawn (D)'))).toContain('letters in brackets match the letters on the resort map');
+    expect(renderMap(lettered('Main Lawn'))).not.toContain('letters in brackets');
+  });
+  it('the property map scrolls sideways and opens full size', () => {
+    const p = alex();
+    const html = renderMap({ ...p, content: { ...p.content, map: { ...p.content.map, imagePath: 'resort-map.jpg', imageAlt: 'Resort map' } } });
+    expect(html).toContain('class="map-scroll"');
+    expect(html).toContain('resort-map.jpg');
+    expect(html).toContain('target="_blank"');
   });
 });

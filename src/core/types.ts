@@ -28,6 +28,27 @@ export interface Guest {
   invited: string[];
 }
 
+/**
+ * One meal or snack on the Meals page. It is shown either to everyone invited to `eventId`, or (with `date`,
+ * YYYY-MM-DD) to anyone who has an event that day. Only names, times, places and dietary labels are
+ * published: never menus.
+ */
+export interface MealItem {
+  eventId?: string;
+  date?: string;
+  label: string;
+  /** Local times, HH:MM (24h). Used for ordering and display. */
+  start?: string;
+  end?: string;
+  /** Free text that replaces the time, e.g. "During Haldi" or "Afternoon". */
+  time?: string;
+  /** Where, if different from the event's own place. */
+  place?: string;
+  /** 'full' = every dish is Jain; 'options' = Jain dishes are available. */
+  jain?: 'full' | 'options';
+  notes?: string;
+}
+
 export interface Content {
   coupleNames: string;
   tagline: string;
@@ -39,7 +60,7 @@ export interface Content {
   /** Virtual wedding program. Empty sections show a "coming soon" placeholder. */
   program: { intro: string; sections: { title: string; body: string }[] };
   /** Meals are tied to events, so times and places come from the event and only invited guests see them. */
-  meals: { intro: string; items: { eventId: string; label: string; time?: string; menu?: string; notes?: string }[] };
+  meals: { intro: string; items: MealItem[] };
   rides: { intro: string; steps: string[]; voucher: { code: string; note: string }; tips: string[] };
   /** Hotel / resort map: an embedded map of the first place, an optional property map image, and a list of places. */
   map: { intro: string; imagePath?: string; imageAlt?: string; places: { name: string; address: string; note?: string }[] };

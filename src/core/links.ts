@@ -1,7 +1,7 @@
 import type { EventInfo } from './types';
 
 function place(e: Pick<EventInfo, 'venue' | 'area' | 'address'>): string {
-  return `${e.venue}${e.area ? `, ${e.area}` : ''}, ${e.address}`;
+  return [e.venue, e.area, e.address].filter(Boolean).join(', ');
 }
 
 function details(e: Pick<EventInfo, 'dressCode' | 'description'>): string {
@@ -18,7 +18,8 @@ export function uberRideUrl(dest: { name: string; address: string }): string {
     action: 'setPickup',
     pickup: 'my_location',
     'dropoff[nickname]': dest.name,
-    'dropoff[formatted_address]': dest.address,
+    // A bare "City, ST" would drop the pin in the middle of town, so include the place name.
+    'dropoff[formatted_address]': /\d/.test(dest.address) ? dest.address : [dest.name, dest.address].filter(Boolean).join(', '),
   });
   return `https://m.uber.com/ul/?${p.toString()}`;
 }

@@ -238,3 +238,14 @@ section[id] { scroll-margin-top: 1rem; }
 .where-what b { font-family: var(--serif); font-weight: 500; font-size: 1.25rem; line-height: 1.15; }
 .where-area { font-size: .95rem; }
 .where-area.tba { color: var(--muted); font-style: italic; }
+
+/* ---------- Meals: Jain labels ---------- */
+.pill { display: inline-block; font-family: var(--sans); font-size: .62rem; letter-spacing: .12em; text-transform: uppercase; padding: .2rem .6rem; border-radius: 999px; vertical-align: middle; margin-left: .4rem; white-space: nowrap; }
+.pill.full { background: var(--maroon); color: var(--cream); border: 1px solid var(--maroon); }
+.pill.options { background: transparent; color: var(--maroon); border: 1px solid var(--maroon); }
+.jain-legend { text-align: center; font-size: .82rem; color: var(--muted); margin: 1.1rem 0 0; line-height: 2; }
+.jain-legend .pill { margin: 0 .3rem 0 0; }
+.tba { color: var(--muted); font-style: italic; }
+
+.map-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; border: 6px solid #f0d9b5; border-radius: 4px; background: #fff; }
+.map-scroll img { display: block; width: max(100%, 880px); height: auto; border: 0; border-radius: 0; }

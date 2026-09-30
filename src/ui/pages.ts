@@ -1,5 +1,5 @@
 import { appleMapsUrl, googleMapsUrl, uberRideUrl } from '../core/links';
-import { formatDay, formatTime, groupByDay, sortEvents } from '../core/time';
+import { formatTime, groupByDay, sortEvents } from '../core/time';
 import type { EventInfo, GuestPayload } from '../core/types';
 import { clock12, forecastOpensOn, formatYmd, nwsUrl, tempAtEvent, tipsFor, weatherCodeInfo, ymdInTimezone } from '../core/weather';
 import type { WeatherResult } from '../core/weatherClient';
@@ -87,42 +87,63 @@ export function renderProgram(p: GuestPayload): string {
 
 // ---------- Meals ----------
 
+/** "19:15" -> "7:15 PM" */
+const hm12 = (hm: string) => clock12(hm);
+
+const localHm = (iso: string, tz: string) =>
+  new Intl.DateTimeFormat('en-GB', { timeZone: tz, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(iso));
+
+const JAIN_LABEL = { full: 'Fully Jain', options: 'Jain options' } as const;
+
 export function renderMeals(p: GuestPayload): string {
   const { intro, items } = p.content.meals;
   const tz = p.content.timezone;
   const byId = new Map(p.events.map((e) => [e.id, e]));
-  const rows = items
-    .map((m) => ({ m, e: byId.get(m.eventId) }))
-    .filter((r): r is { m: (typeof items)[number]; e: EventInfo } => !!r.e);
-  const ordered = sortEvents(rows.map((r) => r.e)).flatMap((e) => rows.filter((r) => r.e.id === e.id));
-  const seen = new Set<(typeof items)[number]>();
-  const list = ordered.filter((r) => (seen.has(r.m) ? false : (seen.add(r.m), true)));
+  const dayOf = (e: EventInfo) => ymdInTimezone(new Date(e.start), tz);
+  const guestDays = new Set(p.events.map(dayOf));
 
-  const days: { day: string; rows: typeof list }[] = [];
-  for (const r of list) {
-    const day = formatDay(r.e.start, tz);
-    const g = days.find((d) => d.day === day);
+  // A meal shows for everyone invited to its event, or (with a date) for anyone with an event that day.
+  type Row = { m: (typeof items)[number]; e?: EventInfo; day: string; at: string };
+  const rows: Row[] = items.flatMap((m): Row[] => {
+    if (m.eventId) {
+      const e = byId.get(m.eventId);
+      if (!e) return [];
+      const day = dayOf(e);
+      return [{ m, e, day, at: m.start ?? (e.timeTbd ? '12:00' : localHm(e.start, tz)) }];
+    }
+    if (m.date && guestDays.has(m.date)) return [{ m, day: m.date, at: m.start ?? '12:00' }];
+    return [];
+  });
+  rows.sort((a, b) => (a.day + a.at).localeCompare(b.day + b.at));
+
+  const days: { day: string; rows: Row[] }[] = [];
+  for (const r of rows) {
+    const g = days.find((d) => d.day === r.day);
     if (g) g.rows.push(r);
-    else days.push({ day, rows: [r] });
+    else days.push({ day: r.day, rows: [r] });
   }
 
-  const card = ({ m, e }: (typeof list)[number]) => {
-    const when = m.time ?? (e.timeTbd ? 'Time to be announced' : formatTime(e.start, tz));
-    return `<article class="card meal" data-meal="${esc(e.id)}">
-      <p class="time">${esc(when)}</p>
-      <h3>${esc(m.label)}</h3>
-      <p class="meal-where">${esc(e.name)} &middot; ${esc(e.area ? `${e.area}, ${e.venue}` : e.venue)}</p>
-      ${m.menu ? `<p class="menu">${esc(m.menu)}</p>` : '<p class="menu tba">Menu to be announced</p>'}
+  const card = ({ m, e }: Row) => {
+    const when =
+      m.time ?? (m.start ? `${hm12(m.start)}${m.end ? ` &ndash; ${hm12(m.end)}` : ''}` : e ? (e.timeTbd ? 'Time to be announced' : formatTime(e.start, tz)) : '');
+    const place = m.place ?? (e ? e.area ?? e.venue : '');
+    const context = [e && e.name !== m.label ? e.name : '', place].filter(Boolean).map(esc).join(' &middot; ');
+    return `<article class="card meal" data-meal="${esc(m.eventId ?? m.date ?? '')}" data-label="${esc(m.label)}">
+      ${when ? `<p class="time">${m.time ? esc(when) : when}</p>` : ''}
+      <h3>${esc(m.label)}${m.jain ? ` <span class="pill ${m.jain}">${JAIN_LABEL[m.jain]}</span>` : ''}</h3>
+      ${context ? `<p class="meal-where">${context}</p>` : ''}
       ${m.notes ? `<p class="muted">${esc(m.notes)}</p>` : ''}
     </article>`;
   };
 
+  const hasJain = rows.some((r) => r.m.jain);
   return `${head('Meals', 'What is served, and when')}
   ${intro ? `<div class="intro">${paragraphs(intro)}</div>` : ''}
+  ${hasJain ? '<p class="jain-legend"><span class="pill full">Fully Jain</span> every dish is Jain &nbsp; <span class="pill options">Jain options</span> Jain dishes are available</p>' : ''}
   ${
     days.length
-      ? days.map((d) => `<section class="day"><h2>${esc(d.day)}</h2>${d.rows.map(card).join('')}</section>`).join('')
-      : soon('Meal Schedule', 'Your meals and menus will be listed here as they are finalized.')
+      ? days.map((d) => `<section class="day"><h2>${esc(formatYmd(d.day))}</h2>${d.rows.map(card).join('')}</section>`).join('')
+      : soon('Meal Schedule', 'Your meals will be listed here as they are finalized.')
   }`;
 }
 
@@ -185,11 +206,12 @@ function renderWhere(p: GuestPayload): string {
     .map(
       (d) => `<h3 class="where-day">${esc(d.day)}</h3><ul class="where-list">${d.events
         .map(
-          (e) => `<li data-where="${esc(e.id)}"><span class="where-time">${esc(e.timeTbd ? 'Time TBA' : formatTime(e.start, tz))}</span><span class="where-what"><b>${esc(e.name)}</b>${e.area ? `<span class="where-area">${esc(e.area)}</span>` : '<span class="where-area tba">Location to be announced</span>'}</span></li>`,
+          (e) => `<li data-where="${esc(e.id)}"><span class="where-time">${esc(e.timeTbd ? 'Time TBA' : formatTime(e.start, tz))}</span><span class="where-what"><b>${esc(e.name)}</b>${e.area ? `<span class="where-area">${esc(e.area)}</span>` : !e.address ? `<span class="where-area tba">${esc(e.venue)} &middot; address to be announced</span>` : '<span class="where-area tba">Location to be announced</span>'}</span></li>`,
         )
         .join('')}</ul>`,
     )
     .join('')}
+  ${p.events.some((e) => /\([A-Z]\)/.test(e.area ?? '')) ? '<p class="muted note">The letters in brackets match the letters on the resort map.</p>' : ''}
   </section>`;
 }
 
@@ -198,7 +220,7 @@ export function renderMap(p: GuestPayload): string {
   const primary = places[0] ?? (p.events[0] ? { name: p.events[0].venue, address: p.events[0].address } : null);
   const list = places.length ? places : primary ? [primary] : [];
   const property = imagePath
-    ? `<figure class="map-figure"><a href="${esc(BASE + imagePath)}" target="_blank" rel="noopener"><img src="${esc(BASE + imagePath)}" alt="${esc(imageAlt || 'Property map')}" loading="lazy"></a><figcaption class="muted">Tap the map to open it full size, then pinch to zoom</figcaption></figure>`
+    ? `<figure class="map-figure"><div class="map-scroll"><a href="${esc(BASE + imagePath)}" target="_blank" rel="noopener"><img src="${esc(BASE + imagePath)}" alt="${esc(imageAlt || 'Property map')}" loading="lazy"></a></div><figcaption class="muted">Swipe to look around. Tap the map to open it full size, then pinch to zoom.</figcaption></figure>`
     : soon('Property Map', 'A map of the resort showing where each lawn and hall is will appear here.');
   const getting = primary
     ? `<section id="map-getting"><h2>Getting here</h2>

@@ -219,7 +219,7 @@ describe('new guide content (program, meals, rides, map, weather)', () => {
   const raw = {
     ...base.content,
     program: { intro: ' Hello ', sections: [{ title: 'Baraat', body: 'Order of events', secret: 'x' }, { title: '', body: '' }] },
-    meals: { intro: '', items: [{ eventId: 'welcome', label: 'Dinner', menu: 'Buffet', vendor: 'Acme Catering', cost: 5000 }, { eventId: '', label: 'no event' }, { eventId: 'welcome', label: '' }] },
+    meals: { intro: '', items: [{ eventId: 'welcome', label: 'Dinner', start: '19:00', end: '21:00', place: 'Main Lawn', time: 'Evening', jain: 'options', menu: 'Buffet', vendor: 'Acme Catering', cost: 5000 }, { date: '2027-06-11', label: 'Snacks', jain: 'full' }, { eventId: '', label: 'no event' }, { eventId: 'welcome', label: '' }] },
     rides: { intro: 'Uber vouchers', steps: [' Open app ', '', 42], voucher: { code: ' RIDE50 ', note: 'Worth $150 each', internal: 'x' }, tips: ['Share rides'] },
     map: { intro: 'Map', imagePath: 'resort-map.png', places: [{ name: 'Andaz', address: '6114 N Scottsdale Rd', note: 'Venue', extra: 1 }, { name: '', address: 'x' }] },
     weather: { place: 'Scottsdale, AZ', latitude: '33.53', longitude: -111.93, apiKey: 'nope' },
@@ -230,11 +230,14 @@ describe('new guide content (program, meals, rides, map, weather)', () => {
   it('keeps only allowlisted fields', () => {
     const c = make().content;
     expect(c.program).toEqual({ intro: 'Hello', sections: [{ title: 'Baraat', body: 'Order of events' }] });
-    expect(c.meals.items).toEqual([{ eventId: 'welcome', label: 'Dinner', menu: 'Buffet' }]);
+    expect(c.meals.items).toEqual([
+      { eventId: 'welcome', label: 'Dinner', start: '19:00', end: '21:00', time: 'Evening', place: 'Main Lawn', jain: 'options' },
+      { date: '2027-06-11', label: 'Snacks', jain: 'full' },
+    ]);
     expect(c.rides).toEqual({ intro: 'Uber vouchers', steps: ['Open app'], voucher: { code: 'RIDE50', note: 'Worth $150 each' }, tips: ['Share rides'] });
     expect(c.map.places).toEqual([{ name: 'Andaz', address: '6114 N Scottsdale Rd', note: 'Venue' }]);
     expect(c.weather).toEqual({ place: 'Scottsdale, AZ', latitude: 33.53, longitude: -111.93 });
-    expect(JSON.stringify(c)).not.toMatch(/Acme|5000|apiKey|internal|secret/);
+    expect(JSON.stringify(c)).not.toMatch(/Acme|5000|apiKey|internal|secret|Buffet|menu/);
   });
   it('fills in empty defaults when the new fields are missing', () => {
     const c = make({ ...base.content, program: undefined, meals: undefined, rides: undefined, map: undefined, weather: undefined }).content;
@@ -302,5 +305,39 @@ describe('event area (lawn / hall within the property)', () => {
   });
   it('is scanned for private terms', () => {
     expect(() => buildPublished({ code: 'ABCD1', events: withFirst({ area: 'Vendor loading dock' }), content: base.content, guestsCsv: 'Name\nA B' })).toThrow(/vendor/i);
+  });
+});
+
+describe('meal validation', () => {
+  const meals = (items: object[]) => ({ ...base.content, meals: { intro: '', items } });
+  const make = (items: object[]) => buildPublished({ code: 'ABCD1', events: base.events, content: meals(items), guestsCsv: 'Name\nA B' });
+  it('accepts an event meal and a day meal with times and a Jain label', () => {
+    expect(() => make([{ eventId: 'welcome', label: 'Dinner', start: '19:00', end: '21:30', jain: 'full' }, { date: '2027-06-11', label: 'Snacks', jain: 'options' }])).not.toThrow();
+  });
+  it('rejects a meal with both an event and a date', () =>
+    expect(() => make([{ eventId: 'welcome', date: '2027-06-11', label: 'X' }])).toThrow(/both an event and a date/));
+  it.each(['2027-6-11', '11/06/2027', '2027-02-30', '2027-13-01', 'tomorrow'])('rejects the date %s', (date) =>
+    expect(() => make([{ date, label: 'X' }])).toThrow(/invalid date/));
+  it.each(['7pm', '25:00', '19:60', '7:00', '19:0'])('rejects the time %s', (start) =>
+    expect(() => make([{ eventId: 'welcome', label: 'X', start }])).toThrow(/invalid start time/));
+  it('rejects a meal that ends before it starts', () =>
+    expect(() => make([{ eventId: 'welcome', label: 'X', start: '20:00', end: '19:00' }])).toThrow(/ends before it starts/));
+  it.each(['vegan', 'Jain', 'yes', 'FULL'])('rejects the Jain value %s', (jain) =>
+    expect(() => make([{ eventId: 'welcome', label: 'X', jain }])).toThrow(/invalid jain value/));
+  it('rejects an unknown event', () => expect(() => make([{ eventId: 'ghost', label: 'X' }])).toThrow(/unknown event "ghost"/));
+  it('scans meal text for private terms, including the place and notes', () => {
+    expect(() => make([{ eventId: 'welcome', label: 'Dinner', place: 'Vendor tent' }])).toThrow(/vendor/i);
+    expect(() => make([{ eventId: 'welcome', label: 'Dinner', notes: 'Final invoice due' }])).toThrow(/invoice/i);
+  });
+});
+
+describe('events whose address is not known yet', () => {
+  const events = [{ ...base.events[0], venue: 'Airbnb', address: '' }, ...base.events.slice(1)];
+  it('are accepted (venue is required, address is not)', () => {
+    const d = buildPublished({ code: 'ABCD1', events, content: base.content, guestsCsv: 'Name\nA B' });
+    expect(d.events[0]).toMatchObject({ venue: 'Airbnb', address: '' });
+  });
+  it('still need a venue and a name', () => {
+    expect(() => buildPublished({ code: 'ABCD1', events: [{ ...base.events[0], venue: '' }, ...base.events.slice(1)], content: base.content, guestsCsv: 'Name\nA B' })).toThrow(/needs a name and a venue/);
   });
 });

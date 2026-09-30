@@ -130,7 +130,14 @@ export function validate(data: PublishedData): string[] {
   const w = data.content.weather;
   if (w && (Math.abs(w.latitude) > 90 || Math.abs(w.longitude) > 180)) errors.push('content.weather latitude/longitude are out of range');
   const eventIds = new Set(data.events.map((e) => e.id));
-  for (const m of data.content.meals.items) if (!eventIds.has(m.eventId)) errors.push(`Meal "${m.label}" refers to unknown event "${m.eventId}"`);
+  for (const m of data.content.meals.items) {
+    if (m.eventId && m.date) errors.push(`Meal "${m.label}" has both an event and a date; use one`);
+    if (m.eventId && !eventIds.has(m.eventId)) errors.push(`Meal "${m.label}" refers to unknown event "${m.eventId}"`);
+    if (m.date && !isRealDate(m.date)) errors.push(`Meal "${m.label}" has an invalid date "${m.date}" (use YYYY-MM-DD)`);
+    for (const k of ['start', 'end'] as const) if (m[k] && !/^([01]\d|2[0-3]):[0-5]\d$/.test(m[k]!)) errors.push(`Meal "${m.label}" has an invalid ${k} time "${m[k]}" (use HH:MM, 24-hour)`);
+    if (m.start && m.end && m.end <= m.start) errors.push(`Meal "${m.label}" ends before it starts`);
+    if (m.jain && (m.jain as string) !== 'full' && (m.jain as string) !== 'options') errors.push(`Meal "${m.label}" has an invalid jain value "${m.jain}" (use "full" or "options")`);
+  }
   if (data.content.map.imagePath && !/^[A-Za-z0-9_./-]+$/.test(data.content.map.imagePath)) errors.push('content.map.imagePath has unsafe characters');
   for (const e of data.events) {
     if (!e.id) errors.push('Event is missing an id');
@@ -142,7 +149,8 @@ export function validate(data: PublishedData): string[] {
     else if (en <= s) errors.push(`Event "${e.id}" ends before it starts`);
     if (!/[+-]\d{2}:\d{2}$|Z$/.test(e.start) || !/[+-]\d{2}:\d{2}$|Z$/.test(e.end))
       errors.push(`Event "${e.id}" times need a UTC offset (e.g. -04:00)`);
-    if (!e.name || !e.venue || !e.address) errors.push(`Event "${e.id}" needs name, venue and address`);
+    // The address may be blank while a location (e.g. an Airbnb) is still to be announced.
+    if (!e.name || !e.venue) errors.push(`Event "${e.id}" needs a name and a venue`);
   }
   for (const g of data.guests) {
     if (!g.name) errors.push('A guest row has no name');
@@ -174,6 +182,13 @@ export function duplicateNames(guests: Guest[]): string[] {
     byName.get(k)!.add(g.householdId);
   }
   return [...byName].filter(([, hh]) => hh.size > 1).map(([n]) => n);
+}
+
+/** YYYY-MM-DD that is an actual calendar day (rejects 2027-02-30 and 2027-13-01 without throwing). */
+function isRealDate(ymd: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) return false;
+  const t = Date.parse(`${ymd}T00:00:00Z`);
+  return !Number.isNaN(t) && new Date(t).toISOString().slice(0, 10) === ymd;
 }
 
 export class PublishError extends Error {
