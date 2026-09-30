@@ -6,10 +6,12 @@
  *   data/raw/content.json  Welcome text, travel, lodging, FAQ, updates
  *   WEDDING_CODE           The code printed on the invitation (env var)
  *
+ * It then encrypts everything guests may see into public/vault, which is safe to commit and deploy.
  * Any private-sounding language or malformed data blocks the publish.
  */
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { PublishError, buildPublished } from '../src/core/sanitize';
+import { writeVault } from './vault-io';
 
 const raw = (f: string) => `data/raw/${f}`;
 const missing = ['guests.csv', 'events.json', 'content.json'].filter((f) => !existsSync(raw(f)));
@@ -33,6 +35,8 @@ try {
   });
   writeFileSync('data/published.json', JSON.stringify(data, null, 2));
   console.log(`Published ${data.events.length} events and ${data.guests.length} guests -> data/published.json`);
+  const n = await writeVault(data, data.code, 'public/vault');
+  console.log(`Encrypted vault: ${n} files -> public/vault (commit this folder; it is ciphertext only)`);
 } catch (e) {
   console.error(e instanceof PublishError ? e.message : e);
   process.exit(1);

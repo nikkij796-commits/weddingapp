@@ -6,6 +6,8 @@ import '@fontsource/jost/latin-500.css';
 import './style.css';
 import { buildIcs } from './core/links';
 import type { GuestPayload } from './core/types';
+import { failureDelayMs, unlock } from './core/vaultClient';
+import type { Outcome } from './core/vault';
 import { TABS, renderApp, renderGate, renderPartyPicker, type TabId } from './ui/render';
 
 const root = document.getElementById('root')!;
@@ -35,42 +37,46 @@ function save(p: GuestPayload | null) {
   }
 }
 
-async function attempt(name: string, code: string, pick?: number): Promise<{ done: boolean; error?: string }> {
+let failures = 0;
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** Shows the result of an unlock attempt. Returns an error message to display, or null when handled. */
+async function handle(run: () => Promise<Outcome>): Promise<string | null> {
   try {
-    const res = await fetch('/api/unlock', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ name, code, pick }),
-    });
-    const data = await res.json();
-    if (data.ok) {
-      payload = data.payload;
+    const outcome = await run();
+    if (outcome.kind === 'ok') {
+      failures = 0;
+      payload = outcome.payload;
       save(payload);
       tab = 'weekend';
       showApp();
-      return { done: true };
+      return null;
     }
-    if (Array.isArray(data.choose)) {
-      showPicker(name, code, data.choose);
-      return { done: true };
+    if (outcome.kind === 'choose') {
+      showPicker(outcome);
+      return null;
     }
-    return { done: false, error: data.error ?? 'Something went wrong. Please try again.' };
+    failures++;
+    await sleep(failureDelayMs(failures));
+    return outcome.error;
   } catch {
-    return { done: false, error: 'We could not reach the server. Check your connection and try again.' };
+    return 'We could not load the guest data. Check your connection and try again.';
   }
 }
 
-function showPicker(name: string, code: string, choices: { index: number; label: string }[]) {
-  root.innerHTML = renderPartyPicker(name, choices);
+function showPicker(choice: Extract<Outcome, { kind: 'choose' }>) {
+  root.innerHTML = renderPartyPicker(typedName, choice.choices);
   root.querySelectorAll<HTMLButtonElement>('[data-pick]').forEach((b) =>
     b.addEventListener('click', async () => {
       root.querySelectorAll<HTMLButtonElement>('[data-pick]').forEach((x) => (x.disabled = true));
-      const r = await attempt(name, code, Number(b.dataset.pick));
-      if (!r.done) showGate(r.error);
+      const error = await handle(() => choice.select(Number(b.dataset.pick)));
+      if (error) showGate(error);
     }),
   );
   document.getElementById('picker-back')?.addEventListener('click', () => showGate());
 }
+
+let typedName = '';
 
 function showGate(error = '') {
   root.innerHTML = renderGate(error);
@@ -88,9 +94,10 @@ function showGate(error = '') {
     }
     btn.disabled = true;
     btn.textContent = 'Checking…';
-    const r = await attempt(name, code);
-    if (r.done) return;
-    err.textContent = r.error ?? '';
+    typedName = name.trim();
+    const error = await handle(() => unlock(name, code));
+    if (error === null) return;
+    err.textContent = error;
     err.hidden = false;
     btn.disabled = false;
     btn.textContent = 'Unlock my weekend';
@@ -146,5 +153,5 @@ setInterval(() => {
 }, 60_000);
 
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
-  navigator.serviceWorker.register('/sw.js').catch(() => undefined);
+  navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`).catch(() => undefined);
 }

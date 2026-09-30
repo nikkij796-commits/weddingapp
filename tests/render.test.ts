@@ -1,15 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { RateLimiter, handleUnlock } from '../src/server/unlock';
 import { esc, firstName, renderApp, renderCountdown, renderFaq, renderGate, renderPartyPicker, renderUpdates, renderWeekend } from '../src/ui/render';
-import type { GuestPayload } from '../src/core/types';
-import { sample } from './fixtures';
+import { payloadFor } from './fixtures';
 
-const data = sample();
-const payloadFor = (name: string): GuestPayload => {
-  const r = handleUnlock(data, { name, code: 'FOREVER' }, new RateLimiter(), 'k');
-  if (!r.body.ok) throw new Error('unlock failed');
-  return r.body.payload;
-};
 const before = new Date('2027-06-01T12:00:00-04:00');
 
 describe('esc', () => {

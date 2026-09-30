@@ -179,11 +179,12 @@ describe('aliases, everyone-events and undecided times', () => {
     expect(w.join()).toMatch(/match no guest.*Nikta/);
   });
   it('the bride can unlock as "Nikki Jain" and shared "Nikita Jain" asks for a party', async () => {
-    const { handleUnlock, RateLimiter } = await import('../src/server/unlock');
+    const { buildVault, unlockVault } = await import('../src/core/vault');
     const d = make({ aliases: { 'Ms. Nikita Jain': ['Nikki Jain'] } });
-    const go = (name: string, pick?: number) => handleUnlock(d, { name, code: 'LUKE', pick }, new RateLimiter(), 'k');
-    expect(go('Nikki Jain').status).toBe(200);
-    expect(go('Nikita Jain').status).toBe(409);
+    const files = await buildVault(d, 'luke', { iterations: 1000 });
+    const go = (name: string) => unlockVault(async (p) => files[p] ?? null, name, 'LUKE');
+    expect((await go('Nikki Jain')).kind).toBe('ok');
+    expect((await go('Nikita Jain')).kind).toBe('choose');
   });
   it('warns that shared names lead to the party picker', () => {
     const w: string[] = [];

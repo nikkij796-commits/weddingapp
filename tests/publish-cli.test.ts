@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -30,6 +30,32 @@ describe('publish CLI', () => {
     expect(JSON.parse(out).guests).toHaveLength(2);
     expect(out).not.toContain('SECRET NOTE');
   });
+  it('also writes an encrypted vault that opens with the code and contains no plaintext', async () => {
+    const dir = workspace();
+    expect(run(dir, 'ABCD1').status).toBe(0);
+    const files: Record<string, string> = {};
+    const walk = (d: string, pre = '') => {
+      for (const f of readdirSync(join(d))) {
+        const p = join(d, f);
+        statSync(p).isDirectory() ? walk(p, `${pre}${f}/`) : (files[`${pre}${f}`] = readFileSync(p, 'utf8'));
+      }
+    };
+    walk(join(dir, 'public/vault'));
+    expect(Object.keys(files)).toEqual(expect.arrayContaining(['manifest.json', 'content.json']));
+    const all = Object.values(files).join('\n');
+    for (const secret of ['Ann Lee', 'Bo Lee', 'Rosewood', 'ABCD1', 'SECRET NOTE']) expect(all).not.toContain(secret);
+    const { unlockVault } = await import('../src/core/vault');
+    const ok = await unlockVault(async (p) => files[p] ?? null, 'ann lee', 'abcd1');
+    expect(ok.kind).toBe('ok');
+    expect((await unlockVault(async (p) => files[p] ?? null, 'ann lee', 'wrong')).kind).toBe('fail');
+  });
+  it('replaces stale vault files on republish', () => {
+    const dir = workspace();
+    mkdirSync(join(dir, 'public/vault/hh'), { recursive: true });
+    writeFileSync(join(dir, 'public/vault/hh/stale.json'), '{}');
+    expect(run(dir, 'ABCD1').status).toBe(0);
+    expect(existsSync(join(dir, 'public/vault/hh/stale.json'))).toBe(false);
+  });
   it('refuses without a code', () => {
     const r = run(workspace());
     expect(r.status).toBe(1);
@@ -40,6 +66,7 @@ describe('publish CLI', () => {
     mkdirSync(join(dir, 'data/raw'), { recursive: true });
     cpSync(join(root, 'src'), join(dir, 'src'), { recursive: true });
     cpSync(join(root, 'scripts'), join(dir, 'scripts'), { recursive: true });
+    writeFileSync(join(dir, 'package.json'), '{"type":"module"}');
     const r = run(dir, 'ABCD1');
     expect(r.status).toBe(1);
     expect(r.stderr).toContain('guests.csv');

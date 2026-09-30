@@ -6,3 +6,4 @@ data/raw/*
 test-results
 playwright-report
 .env
+.e2e

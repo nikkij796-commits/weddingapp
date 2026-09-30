@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
 const unlock = async (page: Page, name: string, code = 'FOREVER') => {
-  await page.goto('/');
+  await page.goto('./');
   await page.fill('#name', name);
   await page.fill('#code', code);
   await page.click('button[type=submit]');
@@ -9,14 +9,14 @@ const unlock = async (page: Page, name: string, code = 'FOREVER') => {
 
 test.describe('gate', () => {
   test('shows only the gate before unlocking (no event details in the page)', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('./');
     await expect(page.getByRole('button', { name: 'Unlock my weekend' })).toBeVisible();
     const html = await page.content();
     for (const s of ['Rosewood', 'Grand Ballroom', 'Garden Terrace', 'Alex Rivera', 'FOREVER']) expect(html).not.toContain(s);
   });
 
   test('empty submit shows a friendly message', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('./');
     await page.click('button[type=submit]');
     await expect(page.locator('#gate-error')).toContainText('both your name and the wedding code');
   });
@@ -31,14 +31,38 @@ test.describe('gate', () => {
     expect(await page.locator('#gate-error').innerText()).toBe(a);
   });
 
-  test('event data is never fetched without a valid unlock', async ({ page }) => {
+  test('nothing readable is ever downloaded, even after a valid unlock', async ({ page }) => {
     const bodies: string[] = [];
     page.on('response', async (r) => {
-      if (r.url().includes('/api/unlock')) bodies.push(await r.text());
+      if (r.url().includes('/vault/')) bodies.push(await r.text().catch(() => ''));
     });
     await unlock(page, 'Alex Rivera', 'WRONG');
     await expect(page.locator('#gate-error')).toBeVisible();
-    expect(bodies.join()).not.toMatch(/Ceremony|events/);
+    await page.reload();
+    await unlock(page, 'Sam Chen');
+    await expect(page.getByText('Welcome, Sam')).toBeVisible();
+    expect(bodies.length).toBeGreaterThan(0);
+    // The page shows Sam's ceremony, but on the wire it is all ciphertext: no guest names, venues or code.
+    for (const secret of ['Sam Chen', 'Alex Rivera', 'Pat Kim', 'Rosewood', 'Grand Ballroom', 'FOREVER', 'Ceremony'])
+      expect(bodies.join('\n'), secret).not.toContain(secret);
+  });
+
+  test('repeated wrong attempts are slowed down', async ({ page }) => {
+    await page.goto('./');
+    await page.fill('#name', 'Zed Nobody');
+    await page.fill('#code', 'FOREVER');
+    const timeAttempt = async () => {
+      const t = Date.now();
+      await page.click('button[type=submit]');
+      await expect(page.locator('#gate-error')).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Unlock my weekend' })).toBeEnabled();
+      return Date.now() - t;
+    };
+    const first = await timeAttempt();
+    await timeAttempt();
+    const third = await timeAttempt(); // the 3rd miss starts a 1s pause
+    expect(first).toBeLessThan(900);
+    expect(third).toBeGreaterThanOrEqual(900);
   });
 });
 
@@ -183,7 +207,7 @@ test.describe('guide behavior', () => {
   });
 
   test('gate reads as a guide, not an invitation', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('./');
     await expect(page.getByText('Wedding weekend guide')).toBeVisible();
     expect((await page.content()).toLowerCase()).not.toContain("you're invited");
   });
@@ -272,14 +296,4 @@ test.describe('quality', () => {
     expect(small).toBe(0);
   });
 
-  test('rate limiting kicks in after repeated failures', async ({ page, request }) => {
-    void page;
-    let last = 0;
-    const ip = `test-${Date.now()}`;
-    for (let i = 0; i < 12; i++) {
-      const r = await request.post('/api/unlock', { data: { name: 'Bad Guess', code: 'nope' }, headers: { 'x-forwarded-for': ip } });
-      last = r.status();
-    }
-    expect(last).toBe(429);
-  });
 });

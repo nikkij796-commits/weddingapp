@@ -9,7 +9,9 @@
     "test": "vitest run",
     "e2e": "playwright test",
     "scan:bundle": "node scripts/scan-bundle.mjs",
-    "publish:data": "tsx scripts/publish.ts"
+    "publish:data": "tsx scripts/publish.ts",
+    "vault": "tsx scripts/build-vault.ts",
+    "build:pages": "BASE_PATH=/weddingapp/ npm run build"
   },
   "devDependencies": {
     "@playwright/test": "^1.49.0",

@@ -7,9 +7,9 @@ Mobile-first, installable (PWA) guest site. Guests enter their **name + wedding 
 | --- | --- |
 | `npm run dev` | Local dev server (uses `data/published.json`, else the sample data) |
 | `npm test` | Unit tests (matching, unlock, privacy sanitizer, time, calendar, rendering, publish CLI) |
-| `npm run e2e` | Browser tests at iPhone, small Android and desktop sizes |
-| `npm run build && npm run scan:bundle` | Production build, then fail if any guest name, code, venue or private term is in the client bundle |
-| `WEDDING_CODE=xxxx npm run publish:data` | Build guest-safe `data/published.json` from `data/raw/` |
+| `npm run e2e` | Browser tests at iPhone, small Android and desktop sizes, plus a production build under `/weddingapp/` |
+| `npm run build:pages && npm run scan:bundle` | Production build for `/weddingapp/`, then fail if anything readable is in the vault or the site |
+| `WEDDING_CODE=xxxx npm run publish:data` | Build guest-safe `data/published.json` from `data/raw/`, then encrypt it into `public/vault/` |
 
 ## Updating content (publish step)
 1. Export from Drive into `data/raw/`: `guests.csv`, `events.json`, `content.json`, and optionally `aliases.json` (see `data/published.sample.json` for shapes).
@@ -17,13 +17,24 @@ Mobile-first, installable (PWA) guest site. Guests enter their **name + wedding 
    - Events with `"everyone": true` are given to every guest (no sheet column needed). Events with `"timeTbd": true` show "Time to be announced" with no calendar buttons or countdown. An empty `dressCode` hides the attire line.
    - `aliases.json` maps a name exactly as written in the sheet to extra names a guest may type, e.g. `{ "Ms. Nikita Jain": ["Nikki Jain"] }`.
 2. Run `WEDDING_CODE=<code> npm run publish:data`. It is **blocked** if copy mentions budget, contract, vendor, invoice, deposit, payment, large dollar amounts, etc.
-3. Deploy.
+3. Commit `public/vault/` and push (see Hosting).
+
+## Hosting: GitHub Pages
+The site is static and deploys with `.github/workflows/deploy.yml` on every push to `main` or `claude/wedding-guest-app` (typecheck, unit tests, build, privacy scan, then publish). Live at `https://nikkij796-commits.github.io/weddingapp/`.
+
+One-time setup: GitHub > Settings > Pages > **Source: GitHub Actions**. If the `github-pages` environment restricts branches, allow the deploy branch.
+
+To publish an update: put the new exports in `data/raw/`, run `WEDDING_CODE=<code> npm run publish:data`, commit `public/vault/`, and push. It goes live in about a minute.
 
 ## Privacy model
+- There is no server. Everything guests can see is published as **ciphertext** in `public/vault/` (safe to commit and deploy). The wedding code is the key: it is stretched with PBKDF2 and used to look up a typed name and to open that one household's file. One household can never read another's.
+- Names match forgivingly: case, accents, titles, aliases, middle names, and **one** typo. A first name alone never matches.
 - If the same name appears in more than one party, guests who enter the correct code are asked to **select their party**. Near-miss typos never trigger this, so it can't be used to probe the list.
-- The guest list never ships to the browser. `POST /api/unlock` (`src/server/unlock.ts`) checks the code first, matches the name, and returns only that household's events plus shared content. Failures return one identical message, and repeated failures are rate limited.
-- Only allowlisted fields are ever published (`src/core/sanitize.ts`).
-- `functions/api/unlock.ts` is a Cloudflare Pages Function wrapper. Any host that can run a small server function works.
+- Every failure shows the same message. With no server there is no lockout, so repeated misses are slowed down in the browser instead.
+- **The code is the only lock.** The ciphertext is public, so someone could guess codes offline; a longer code makes that impractical. What is protected is guest names and which events each household attends (no emails, phones, hotels or budget are ever included).
+- Only allowlisted fields are ever published (`src/core/sanitize.ts`), and the publish is blocked if copy mentions budget, contracts, vendors, etc.
+- `npm run scan:bundle` fails the build if any vault file contains readable text, or if any guest name, code or venue appears in the site.
+- Later option: a small Cloudflare Worker could restore lockouts without changing the matching code.
 
 ## Later: downloadable app
 The site is a standard PWA, so it can be wrapped with Capacitor for App Store / Play Store builds.
