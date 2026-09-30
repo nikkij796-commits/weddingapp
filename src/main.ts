@@ -6,17 +6,16 @@ import '@fontsource/jost/latin-500.css';
 import './style.css';
 import { buildIcs } from './core/links';
 import type { GuestPayload } from './core/types';
-import { failureDelayMs, unlock } from './core/vaultClient';
+import { normalizePayload } from './core/payload';
+import { SESSION_VERSION, clearSession, loadSession, refreshSession, saveSession, type Session, type Store } from './core/session';
+import { failureDelayMs, httpFetcher, unlock } from './core/vaultClient';
 import type { Outcome } from './core/vault';
 import { eventDays } from './core/weather';
 import { loadWeather } from './core/weatherClient';
-import { ALL_TABS, renderApp, renderGate, renderPartyPicker, type TabId, type WeatherState } from './ui/render';
+import { ALL_TABS, renderApp, renderGate, renderPartyPicker, renderProblem, type TabId, type WeatherState } from './ui/render';
 import { renderWeatherBody } from './ui/pages';
 
 const root = document.getElementById('root')!;
-const KEY = 'wedding.session.v1';
-const MAX_AGE = 1000 * 60 * 60 * 24 * 14;
-
 let payload: GuestPayload | null = null;
 let tab: TabId = 'weekend';
 let jumpedToToday = false;
@@ -24,23 +23,27 @@ let weatherState: WeatherState = { phase: 'loading' };
 let weatherLoadedAt = 0;
 let weatherRun = 0;
 
-function load(): GuestPayload | null {
+function safeStore(): Store | null {
   try {
-    const raw = localStorage.getItem(KEY);
-    if (!raw) return null;
-    const s = JSON.parse(raw) as { at: number; payload: GuestPayload };
-    return Date.now() - s.at < MAX_AGE ? s.payload : null;
+    return window.localStorage;
   } catch {
-    return null;
+    return null; // private mode: the guide still works, the guest just signs in again next time
   }
 }
-function save(p: GuestPayload | null) {
-  try {
-    if (p) localStorage.setItem(KEY, JSON.stringify({ at: Date.now(), payload: p }));
-    else localStorage.removeItem(KEY);
-  } catch {
-    /* private mode: session just won't persist */
-  }
+const store = safeStore();
+
+/** The name and code this guest signed in with, kept so the guide can quietly re-download itself. */
+let creds: { name: string; code: string; pick?: string } | null = null;
+let typedName = '';
+let typedCode = '';
+let currentPick: string | undefined;
+let lastRefresh = 0;
+const REFRESH_AFTER_MS = 10 * 60_000;
+
+const sessionOf = (p: GuestPayload): Session => ({ v: SESSION_VERSION, at: Date.now(), name: creds!.name, code: creds!.code, ...(creds!.pick ? { pick: creds!.pick } : {}), payload: p });
+
+function persist() {
+  if (creds && payload) saveSession(store, { name: creds.name, code: creds.code, ...(creds.pick ? { pick: creds.pick } : {}), payload });
 }
 
 let failures = 0;
@@ -52,10 +55,12 @@ async function handle(run: () => Promise<Outcome>): Promise<string | null> {
     const outcome = await run();
     if (outcome.kind === 'ok') {
       failures = 0;
-      payload = outcome.payload;
+      payload = normalizePayload(outcome.payload) ?? outcome.payload;
+      creds = { name: typedName, code: typedCode, ...(currentPick ? { pick: currentPick } : {}) };
       weatherState = { phase: 'loading' };
       weatherLoadedAt = 0;
-      save(payload);
+      lastRefresh = Date.now();
+      persist();
       tab = 'weekend';
       showApp();
       return null;
@@ -77,6 +82,7 @@ function showPicker(choice: Extract<Outcome, { kind: 'choose' }>) {
   root.querySelectorAll<HTMLButtonElement>('[data-pick]').forEach((b) =>
     b.addEventListener('click', async () => {
       root.querySelectorAll<HTMLButtonElement>('[data-pick]').forEach((x) => (x.disabled = true));
+      currentPick = choice.choices.find((c) => c.index === Number(b.dataset.pick))?.label;
       const error = await handle(() => choice.select(Number(b.dataset.pick)));
       if (error) showGate(error);
     }),
@@ -84,10 +90,9 @@ function showPicker(choice: Extract<Outcome, { kind: 'choose' }>) {
   document.getElementById('picker-back')?.addEventListener('click', () => showGate());
 }
 
-let typedName = '';
 
-function showGate(error = '') {
-  root.innerHTML = renderGate(error);
+function showGate(error = '', notice = '') {
+  root.innerHTML = renderGate(error, notice);
   const form = document.getElementById('gate-form') as HTMLFormElement;
   const btn = form.querySelector('button')!;
   form.addEventListener('submit', async (ev) => {
@@ -103,6 +108,8 @@ function showGate(error = '') {
     btn.disabled = true;
     btn.textContent = 'Checking…';
     typedName = name.trim();
+    typedCode = code;
+    currentPick = undefined;
     const error = await handle(() => unlock(name, code));
     if (error === null) return;
     err.textContent = error;
@@ -115,7 +122,12 @@ function showGate(error = '') {
 function showApp() {
   if (!payload) return showGate();
   const p = payload;
-  root.innerHTML = renderApp(p, tab, new Date(), weatherState);
+  try {
+    root.innerHTML = renderApp(p, tab, new Date(), weatherState);
+  } catch (err) {
+    console.error('A page failed to draw', err);
+    return showProblem();
+  }
   if (tab === 'weekend' && !jumpedToToday) {
     jumpedToToday = true; // on the weekend itself, open at today's schedule
     root.querySelector('[data-today]')?.scrollIntoView({ block: 'start' });
@@ -141,19 +153,73 @@ function showApp() {
     }),
   );
   if (tab === 'weather') void refreshWeather();
-  document.getElementById('signout')?.addEventListener('click', () => {
-    payload = null;
-    weatherState = { phase: 'loading' };
-    weatherLoadedAt = 0;
-    save(null);
-    showGate();
+  document.getElementById('signout')?.addEventListener('click', signOut);
+}
+
+function signOut() {
+  payload = null;
+  creds = null;
+  weatherState = { phase: 'loading' };
+  weatherLoadedAt = 0;
+  clearSession(store);
+  showGate();
+}
+
+/** If a page fails to draw, offer a way out instead of leaving the guest with taps that do nothing. */
+function showProblem() {
+  root.innerHTML = renderProblem();
+  document.getElementById('signout')?.addEventListener('click', signOut);
+  root.querySelector('[data-recover]')?.addEventListener('click', async (ev) => {
+    const btn = ev.currentTarget as HTMLButtonElement;
+    btn.disabled = true;
+    btn.textContent = 'Refreshing…';
+    if (await refreshInBackground(true)) return;
+    // Nothing newer to download: fall back to the main page, and only sign out if even that cannot draw.
+    tab = 'weekend';
+    try {
+      if (!payload) throw new Error('no data');
+      renderApp(payload, 'weekend', new Date(), weatherState);
+      showApp();
+    } catch {
+      signOut();
+      showGate('We could not refresh your guide. Please enter your name and code again.');
+    }
   });
+}
+
+/**
+ * Quietly re-downloads the guide with the saved name and code, so announcements, vouchers, menus and
+ * app updates reach phones that unlocked earlier. Keeps the saved copy if offline. Returns true if
+ * the guide was updated.
+ */
+async function refreshInBackground(force = false): Promise<boolean> {
+  const c = creds;
+  const p = payload;
+  if (!c || !p) return false;
+  lastRefresh = Date.now();
+  const result = await refreshSession(httpFetcher, sessionOf(p));
+  if (result.kind !== 'updated' || creds !== c) return false; // signed out meanwhile, or nothing new
+  payload = result.payload;
+  persist();
+  weatherState = { phase: 'loading' };
+  weatherLoadedAt = 0;
+  if (force) tab = 'weekend';
+  const y = window.scrollY;
+  showApp();
+  window.scrollTo({ top: y });
+  return true;
 }
 
 function paintWeather(p: GuestPayload) {
   if (tab !== 'weather') return;
   const el = document.getElementById('weather-root');
-  if (el) el.innerHTML = renderWeatherBody(p, weatherState, new Date());
+  if (!el) return;
+  try {
+    el.innerHTML = renderWeatherBody(p, weatherState, new Date());
+  } catch (err) {
+    console.error('Weather failed to draw', err);
+    el.innerHTML = '<article class="card wx-error"><h3>We couldn&rsquo;t show the weather</h3><div class="actions"><button type="button" class="chip" data-retry>Try again</button></div></article>';
+  }
 }
 
 /** Loads (or reloads) the forecast for this guest's event days, at most every 10 minutes unless forced. */
@@ -197,9 +263,21 @@ root.addEventListener('click', async (ev) => {
   }
 });
 
-payload = load();
-if (payload) showApp();
-else showGate();
+const loaded = loadSession(store);
+if (loaded.kind === 'session') {
+  const { name, code, pick, payload: saved } = loaded.session;
+  creds = { name, code, ...(pick ? { pick } : {}) };
+  payload = saved;
+  showApp();
+  void refreshInBackground();
+} else {
+  showGate('', loaded.kind === 'legacy' ? 'The guide was updated. Please enter your name and code again.' : '');
+}
+
+// Coming back to the app later (e.g. on the wedding weekend): fetch anything published since.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && payload && Date.now() - lastRefresh > REFRESH_AFTER_MS) void refreshInBackground();
+});
 
 // Keep "happening now" and the countdown fresh.
 setInterval(() => {

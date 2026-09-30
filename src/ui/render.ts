@@ -20,7 +20,7 @@ export const DESERT_SCENE = `<svg class="scene" viewBox="0 0 400 110" preserveAs
 
 const RULE = '<div class="rule" aria-hidden="true"><span>&#10049;</span></div>';
 
-export function renderGate(error = ''): string {
+export function renderGate(error = '', notice = ''): string {
   return `
   <main class="gate">
     <div class="gate-card"><div class="gate-inner">
@@ -28,6 +28,7 @@ export function renderGate(error = ''): string {
       <h1 class="monogram">N &amp; S</h1>
       ${RULE}
       <p class="lede">Enter your name and wedding code to see your weekend.</p>
+      ${notice ? `<p class="notice" role="status">${esc(notice)}</p>` : ''}
       <form id="gate-form" novalidate>
         <label for="name">Your name</label>
         <input id="name" name="name" autocomplete="name" placeholder="First and last name" required />
@@ -36,6 +37,20 @@ export function renderGate(error = ''): string {
         <p id="gate-error" class="error" role="alert" ${error ? '' : 'hidden'}>${esc(error)}</p>
         <button type="submit" class="btn">Unlock my weekend</button>
       </form>
+    </div></div>
+  </main>`;
+}
+
+/** Shown if a page ever fails to draw, so a tap is never silently dead. */
+export function renderProblem(): string {
+  return `
+  <main class="gate">
+    <div class="gate-card"><div class="gate-inner">
+      <p class="eyebrow">One moment</p>
+      <h1 class="picker-title">Something went wrong</h1>
+      <p class="lede">Tap below to refresh your guide.</p>
+      <button type="button" class="btn" data-recover>Refresh my guide</button>
+      <button type="button" class="link" id="signout">Sign out</button>
     </div></div>
   </main>`;
 }
