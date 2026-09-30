@@ -5,6 +5,8 @@ export interface EventInfo {
   start: string;
   end: string;
   venue: string;
+  /** Where on the property, e.g. "Sonoran Lawn" or "Grand Ballroom". Shown on the event and the property map page. */
+  area?: string;
   address: string;
   dressCode: string;
   dressNotes: string;

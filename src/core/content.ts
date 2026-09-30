@@ -29,6 +29,7 @@ export function pickEvents(raw: unknown): EventInfo[] {
         .filter((x: { time: string; label: string }) => x.time && x.label);
       if (m.length) out.moments = m;
     }
+    if (str(e?.area)) out.area = str(e.area);
     if (e?.timeTbd === true) out.timeTbd = true;
     if (e?.everyone === true) out.everyone = true;
     return out;

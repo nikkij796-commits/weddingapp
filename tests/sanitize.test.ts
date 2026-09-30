@@ -44,7 +44,7 @@ describe('pickEvents allowlist', () => {
   it('drops unknown fields such as cost or vendor', () => {
     const [e] = pickEvents([{ ...base.events[0], vendorName: 'Acme Floral', cost: 9000, notes: 'private' }]);
     expect(Object.keys(e).sort()).toEqual(
-      ['address', 'description', 'dressCode', 'dressNotes', 'end', 'id', 'name', 'start', 'venue'],
+      ['address', 'area', 'description', 'dressCode', 'dressNotes', 'end', 'id', 'name', 'start', 'venue'],
     );
     expect(JSON.stringify(e)).not.toMatch(/Acme|9000|private/);
   });
@@ -275,5 +275,32 @@ describe('new guide content (program, meals, rides, map, weather)', () => {
     expect(r.payload.content.rides.voucher.code).toBe('RIDE50');
     expect(r.payload.content.weather?.latitude).toBe(33.53);
     expect(Object.values(files).join('')).not.toContain('RIDE50');
+  });
+});
+
+describe('event area (lawn / hall within the property)', () => {
+  const noArea = base.events[1]; // the ceremony has no area
+  const withFirst = (patch: object) => [{ ...base.events[0], ...patch }, ...base.events.slice(1)];
+  it('is kept, trimmed, and omitted when empty', () => {
+    const [a, b, c] = pickEvents([{ ...noArea, area: '  Sonoran Lawn ' }, { ...noArea, area: '   ' }, noArea]);
+    expect(a.area).toBe('Sonoran Lawn');
+    expect('area' in b).toBe(false);
+    expect('area' in c).toBe(false);
+  });
+  it('survives publishing', () => {
+    const d = buildPublished({ code: 'ABCD1', events: withFirst({ area: 'Sonoran Lawn' }), content: base.content, guestsCsv: 'Name,welcome\nA B,yes' });
+    expect(d.events[0].area).toBe('Sonoran Lawn');
+  });
+  it('reaches the guest through the encrypted vault', async () => {
+    const { buildVault, unlockVault } = await import('../src/core/vault');
+    const d = buildPublished({ code: 'ABCD1', events: withFirst({ area: 'Sonoran Lawn' }), content: base.content, guestsCsv: 'Name,welcome\nA B,yes' });
+    const files = await buildVault(d, 'ABCD1', { iterations: 1000 });
+    const r = await unlockVault(async (p) => files[p] ?? null, 'A B', 'ABCD1');
+    if (r.kind !== 'ok') throw new Error('expected ok');
+    expect(r.payload.events.find((e) => e.id === 'welcome')!.area).toBe('Sonoran Lawn');
+    expect(Object.values(files).join('')).not.toContain('Sonoran');
+  });
+  it('is scanned for private terms', () => {
+    expect(() => buildPublished({ code: 'ABCD1', events: withFirst({ area: 'Vendor loading dock' }), content: base.content, guestsCsv: 'Name\nA B' })).toThrow(/vendor/i);
   });
 });

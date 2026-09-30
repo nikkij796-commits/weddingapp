@@ -77,3 +77,15 @@ describe('Uber deep link', () => {
     expect(u.searchParams.get('dropoff[formatted_address]')).toBe('1 A St #2');
   });
 });
+
+describe('event area in calendar locations', () => {
+  const withArea = { ...events[1], area: 'Rose Lawn' }; // the ceremony, at Rosewood Chapel
+  it('is part of the ics and Google Calendar location', () => {
+    const ics = buildIcs([withArea], 'x').replace(/\r\n /g, ''); // undo line folding
+    expect(ics).toContain('LOCATION:Rosewood Chapel\\, Rose Lawn\\, 200 Example Avenue\\, Sampleville\\, NY 10001');
+    expect(new URL(googleCalendarUrl(withArea)).searchParams.get('location')).toBe('Rosewood Chapel, Rose Lawn, 200 Example Avenue, Sampleville, NY 10001');
+  });
+  it('is left out when there is none', () => {
+    expect(new URL(googleCalendarUrl(events[1])).searchParams.get('location')).toBe('Rosewood Chapel, 200 Example Avenue, Sampleville, NY 10001');
+  });
+});

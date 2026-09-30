@@ -104,7 +104,8 @@
       "address": "100 Example Street, Sampleville, NY 10001",
       "dressCode": "Smart Casual",
       "dressNotes": "Linen shirts, sundresses, jumpsuits. Comfortable shoes for the lawn.",
-      "description": "Drinks and light bites."
+      "description": "Drinks and light bites.",
+      "area": "Main Lawn"
     },
     {
       "id": "ceremony",
@@ -136,7 +137,8 @@
       "address": "300 Example Boulevard, Sampleville, NY 10001",
       "dressCode": "Black Tie Optional",
       "dressNotes": "Dancing shoes encouraged.",
-      "description": "Dinner and dancing."
+      "description": "Dinner and dancing.",
+      "area": "Grand Ballroom"
     },
     {
       "id": "brunch",

@@ -128,7 +128,40 @@ test.describe('Hotel map', () => {
     await expect(page.locator('.place')).toHaveCount(2);
     await expect(page.locator('.place').first().getByRole('link', { name: 'Google Maps' })).toHaveAttribute('href', /google\.com\/maps/);
     await expect(page.locator('.place').first().getByRole('link', { name: 'Uber' })).toHaveAttribute('href', /m\.uber\.com/);
-    await expect(page.getByText('A map of the property will be added here')).toBeVisible();
+    await expect(page.getByText('Property Map')).toBeVisible();
+    await expect(page.getByText('where each lawn and hall is')).toBeVisible();
+  });
+});
+
+test.describe('Hotel map: where is my event?', () => {
+  test('lists this guest\'s events with their lawn or hall (or says it is not decided yet)', async ({ page }) => {
+    await unlock(page, 'Alex Rivera');
+    await openTab(page, 'Hotel map');
+    const where = page.locator('#map-where');
+    await expect(where.locator('h2')).toHaveText('Where is my event?');
+    await expect(where.locator('[data-where=welcome]')).toContainText('Main Lawn');
+    await expect(where.locator('[data-where=reception]')).toContainText('Grand Ballroom');
+    await expect(where.locator('[data-where=ceremony]')).toContainText('Location to be announced');
+    await expect(where.locator('[data-where=brunch]')).toContainText('Time TBA');
+  });
+  test('a one-event guest sees only their own event', async ({ page }) => {
+    await unlock(page, 'Sam Chen');
+    await openTab(page, 'Hotel map');
+    await expect(page.locator('#map-where li')).toHaveCount(1);
+    await expect(page.locator('#map-where')).not.toContainText('Grand Ballroom');
+  });
+  test('the property map comes first, then the event list, then the street map', async ({ page }) => {
+    await unlock(page, 'Alex Rivera');
+    await openTab(page, 'Hotel map');
+    const y = (sel: string) => page.locator(sel).first().evaluate((el) => el.getBoundingClientRect().top + window.scrollY);
+    expect(await y('.soon')).toBeLessThan(await y('#map-where'));
+    expect(await y('#map-where')).toBeLessThan(await y('#map-getting'));
+    await expect(page.locator('#map-getting iframe')).toBeAttached();
+  });
+  test('the event card shows the lawn or hall too', async ({ page }) => {
+    await unlock(page, 'Alex Rivera');
+    await expect(page.locator('[data-event=welcome] .area')).toHaveText('Main Lawn');
+    await expect(page.locator('[data-event=ceremony] .area')).toHaveCount(0);
   });
 });
 

@@ -227,3 +227,14 @@ section[id] { scroll-margin-top: 1rem; }
 .wx-error { text-align: center; }
 
 .notice { margin: 1rem 0 0; padding: .7rem .9rem; background: #f7e4ca; border-radius: 4px; font-size: .9rem; text-align: center; color: var(--ink); }
+
+/* ---------- Hotel map: where is my event? ---------- */
+.area { color: var(--maroon); font-weight: 500; }
+.where-day { font-family: var(--script); font-size: 1.9rem; color: var(--maroon); margin: 1.2rem 0 .4rem; text-align: center; }
+.where-list { list-style: none; margin: 0; padding: 0; display: grid; gap: .6rem; }
+.where-list li { display: flex; gap: 1rem; align-items: baseline; padding: .9rem 1rem; background: #fffaf1; border: 1px solid var(--line); border-radius: 4px; }
+.where-time { flex: none; min-width: 4.6rem; font-size: .72rem; letter-spacing: .12em; text-transform: uppercase; color: var(--maroon); }
+.where-what { display: grid; gap: .1rem; }
+.where-what b { font-family: var(--serif); font-weight: 500; font-size: 1.25rem; line-height: 1.15; }
+.where-area { font-size: .95rem; }
+.where-area.tba { color: var(--muted); font-style: italic; }

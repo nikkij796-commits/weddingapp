@@ -173,10 +173,11 @@ describe('Hotel map', () => {
   });
   it('shows a property-map placeholder until an image is provided', () => {
     expect(renderMap(alex())).toContain('Property Map');
+    expect(renderMap(alex())).toContain('where each lawn and hall is');
     const withImg = withContent(alex(), { map: { intro: '', places: [], imagePath: 'resort-map.png', imageAlt: 'Resort map' } });
     const h = renderMap(withImg);
     expect(h).toContain('<img src="/resort-map.png" alt="Resort map"');
-    expect(h).not.toContain('A map of the property will be added here');
+    expect(h).not.toContain('will appear here');
   });
   it('falls back to the first event\'s venue when no places are configured', () => {
     const h = renderMap(emptyContent(alex()));
@@ -264,5 +265,56 @@ describe('Weather page', () => {
     const h = renderWeather(alex(), { phase: 'loading' }, now);
     expect(h).toContain('id="weather-root"');
     expect(h).toContain('Sampleville, NY');
+  });
+});
+
+describe('Hotel map: property map and "Where is my event?"', () => {
+  it('shows each of the guest\'s events with its lawn or hall, and says so when it is not decided yet', () => {
+    const h = renderMap(alex());
+    const row = (id: string) => h.slice(h.indexOf(`data-where="${id}"`), h.indexOf('</li>', h.indexOf(`data-where="${id}"`)));
+    expect(row('welcome')).toContain('Main Lawn');
+    expect(row('reception')).toContain('Grand Ballroom');
+    expect(row('ceremony')).toContain('Location to be announced');
+    expect(row('ceremony')).toContain('4:00 PM');
+    expect(row('brunch')).toContain('Time TBA');
+  });
+  it('lists events by day in time order', () => {
+    const h = renderMap(alex());
+    expect(h.indexOf('Friday, June 11')).toBeLessThan(h.indexOf('Saturday, June 12'));
+    expect(h.indexOf('Saturday, June 12')).toBeLessThan(h.indexOf('Sunday, June 13'));
+    expect(h.indexOf('data-where="ceremony"')).toBeLessThan(h.indexOf('data-where="reception"'));
+  });
+  it('only lists the guest\'s own events', () => {
+    const h = renderMap(sam());
+    expect(h).toContain('data-where="ceremony"');
+    expect(h).not.toMatch(/data-where="(welcome|reception|brunch)"/);
+  });
+  it('puts the property map first, then the event list, then the street map', () => {
+    const h = renderMap(withContent(alex(), { map: { intro: '', places: [], imagePath: 'resort-map.png' } }));
+    const order = ['class="map-figure"', 'id="map-where"', 'id="map-getting"', '<iframe'].map((x) => h.indexOf(x));
+    expect(order.every((i) => i >= 0)).toBe(true);
+    expect([...order].sort((a, b) => a - b)).toEqual(order);
+  });
+  it('has no event list for a guest with no events, and still shows the map', () => {
+    const h = renderMap({ ...alex(), events: [] });
+    expect(h).not.toContain('map-where');
+    expect(h).toContain('Property Map');
+  });
+  it('escapes the area text', () => {
+    const p = alex();
+    p.events = p.events.map((e) => (e.id === 'welcome' ? { ...e, area: '<b>Lawn</b> & "Deck"' } : e));
+    const h = renderMap(p);
+    expect(h).not.toContain('<b>Lawn</b>');
+    expect(h).toContain('&lt;b&gt;Lawn&lt;/b&gt; &amp; &quot;Deck&quot;');
+  });
+});
+
+describe('event area shows up everywhere an event location does', () => {
+  it('on the event card, the meals page, and only when set', () => {
+    const weekend = renderApp(alex(), 'weekend', before);
+    const card = (id: string) => weekend.slice(weekend.indexOf(`data-event="${id}"`), weekend.indexOf('</article>', weekend.indexOf(`data-event="${id}"`)));
+    expect(card('welcome')).toContain('<span class="area">Main Lawn</span>');
+    expect(card('ceremony')).not.toContain('class="area"');
+    expect(renderMeals(alex())).toContain('Main Lawn, The Garden Terrace');
   });
 });

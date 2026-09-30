@@ -1,5 +1,5 @@
 import { appleMapsUrl, googleMapsUrl, uberRideUrl } from '../core/links';
-import { formatDay, formatTime, sortEvents } from '../core/time';
+import { formatDay, formatTime, groupByDay, sortEvents } from '../core/time';
 import type { EventInfo, GuestPayload } from '../core/types';
 import { clock12, forecastOpensOn, formatYmd, nwsUrl, tempAtEvent, tipsFor, weatherCodeInfo, ymdInTimezone } from '../core/weather';
 import type { WeatherResult } from '../core/weatherClient';
@@ -111,7 +111,7 @@ export function renderMeals(p: GuestPayload): string {
     return `<article class="card meal" data-meal="${esc(e.id)}">
       <p class="time">${esc(when)}</p>
       <h3>${esc(m.label)}</h3>
-      <p class="meal-where">${esc(e.name)} &middot; ${esc(e.venue)}</p>
+      <p class="meal-where">${esc(e.name)} &middot; ${esc(e.area ? `${e.area}, ${e.venue}` : e.venue)}</p>
       ${m.menu ? `<p class="menu">${esc(m.menu)}</p>` : '<p class="menu tba">Menu to be announced</p>'}
       ${m.notes ? `<p class="muted">${esc(m.notes)}</p>` : ''}
     </article>`;
@@ -175,25 +175,42 @@ export function renderRides(p: GuestPayload): string {
 
 // ---------- Hotel map ----------
 
+/** "Where is my event?": the lawn or hall for each of the guest's events, in time order, by day. */
+function renderWhere(p: GuestPayload): string {
+  const tz = p.content.timezone;
+  const days = groupByDay(p.events, tz);
+  if (!days.length) return '';
+  return `<section id="map-where"><h2>Where is my event?</h2>
+  ${days
+    .map(
+      (d) => `<h3 class="where-day">${esc(d.day)}</h3><ul class="where-list">${d.events
+        .map(
+          (e) => `<li data-where="${esc(e.id)}"><span class="where-time">${esc(e.timeTbd ? 'Time TBA' : formatTime(e.start, tz))}</span><span class="where-what"><b>${esc(e.name)}</b>${e.area ? `<span class="where-area">${esc(e.area)}</span>` : '<span class="where-area tba">Location to be announced</span>'}</span></li>`,
+        )
+        .join('')}</ul>`,
+    )
+    .join('')}
+  </section>`;
+}
+
 export function renderMap(p: GuestPayload): string {
   const { intro, imagePath, imageAlt, places } = p.content.map;
   const primary = places[0] ?? (p.events[0] ? { name: p.events[0].venue, address: p.events[0].address } : null);
   const list = places.length ? places : primary ? [primary] : [];
+  const property = imagePath
+    ? `<figure class="map-figure"><a href="${esc(BASE + imagePath)}" target="_blank" rel="noopener"><img src="${esc(BASE + imagePath)}" alt="${esc(imageAlt || 'Property map')}" loading="lazy"></a><figcaption class="muted">Tap the map to open it full size, then pinch to zoom</figcaption></figure>`
+    : soon('Property Map', 'A map of the resort showing where each lawn and hall is will appear here.');
+  const getting = primary
+    ? `<section id="map-getting"><h2>Getting here</h2>
+  <div class="map-frame"><iframe title="Map of ${esc(primary.name)}" loading="lazy" referrerpolicy="no-referrer" src="https://maps.google.com/maps?q=${encodeURIComponent(`${primary.name}, ${primary.address}`)}&z=16&output=embed"></iframe></div>
+  ${list.map((pl) => `<article class="card place"><h3>${esc(pl.name)}</h3>${'note' in pl && pl.note ? `<p class="time">${esc(pl.note)}</p>` : ''}<p class="muted">${esc(pl.address)}</p><div class="actions"><a class="chip" href="${esc(googleMapsUrl({ venue: pl.name, address: pl.address }))}" target="_blank" rel="noopener">Google Maps</a><a class="chip" href="${esc(appleMapsUrl({ venue: pl.name, address: pl.address }))}" target="_blank" rel="noopener">Apple Maps</a><a class="chip" href="${esc(uberRideUrl(pl))}" target="_blank" rel="noopener">Uber</a></div></article>`).join('')}
+  </section>`
+    : '';
   return `${head('Hotel Map', primary ? primary.name : '')}
   ${intro ? `<div class="intro">${paragraphs(intro)}</div>` : ''}
-  ${
-    primary
-      ? `<div class="map-frame"><iframe title="Map of ${esc(primary.name)}" loading="lazy" referrerpolicy="no-referrer" src="https://maps.google.com/maps?q=${encodeURIComponent(`${primary.name}, ${primary.address}`)}&z=16&output=embed"></iframe></div>`
-      : soon('Map', 'The map will appear here.')
-  }
-  ${
-    imagePath
-      ? `<figure class="map-figure"><a href="${esc(BASE + imagePath)}" target="_blank" rel="noopener"><img src="${esc(BASE + imagePath)}" alt="${esc(imageAlt || 'Property map')}" loading="lazy"></a><figcaption class="muted">Tap the map to open it full size</figcaption></figure>`
-      : soon('Property Map', 'A map of the property will be added here.')
-  }
-  <section><h2>Places</h2>
-  ${list.map((pl) => `<article class="card place"><h3>${esc(pl.name)}</h3>${'note' in pl && pl.note ? `<p class="time">${esc(pl.note)}</p>` : ''}<p class="muted">${esc(pl.address)}</p><div class="actions"><a class="chip" href="${esc(googleMapsUrl({ venue: pl.name, address: pl.address }))}" target="_blank" rel="noopener">Google Maps</a><a class="chip" href="${esc(appleMapsUrl({ venue: pl.name, address: pl.address }))}" target="_blank" rel="noopener">Apple Maps</a><a class="chip" href="${esc(uberRideUrl(pl))}" target="_blank" rel="noopener">Uber</a></div></article>`).join('')}
-  </section>`;
+  ${property}
+  ${renderWhere(p)}
+  ${getting}`;
 }
 
 // ---------- Weather ----------
