@@ -1,11 +1,10 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test } from '@playwright/test';
+import { contrast, mockExternal, openTab, unlock } from './helpers';
 
-const unlock = async (page: Page, name: string, code = 'FOREVER') => {
-  await page.goto('./');
-  await page.fill('#name', name);
-  await page.fill('#code', code);
-  await page.click('button[type=submit]');
-};
+
+test.beforeEach(async ({ page }) => {
+  await mockExternal(page);
+});
 
 test.describe('gate', () => {
   test('shows only the gate before unlocking (no event details in the page)', async ({ page }) => {
@@ -112,14 +111,14 @@ test.describe('personalized experience', () => {
     expect(text).toContain('SUMMARY:Ceremony');
   });
 
-  test('has three tabs (no Travel) and FAQ expands', async ({ page }) => {
+  test('FAQ (under More) expands, and Updates shows announcements', async ({ page }) => {
     await unlock(page, 'Sam Chen');
-    await expect(page.locator('.tabs button')).toHaveText(['Weekend', 'FAQ', 'Updates']);
-    await page.getByRole('button', { name: 'FAQ' }).click();
+    await openTab(page, 'FAQ');
     await page.getByText("What's the weather like?").click();
     await expect(page.getByText('sunny and mild')).toBeVisible();
     await expect(page.getByText('Uber voucher details')).toBeAttached();
-    await page.getByRole('button', { name: 'Updates' }).click();
+    await page.getByRole('button', { name: /More/ }).first().click();
+    await openTab(page, 'Updates');
     await expect(page.getByText('Shuttle schedule will be posted')).toBeVisible();
   });
 
@@ -214,39 +213,6 @@ test.describe('guide behavior', () => {
 });
 
 test.describe('legibility', () => {
-  // WCAG contrast of an element's text against its effective (blended) background.
-  const contrast = (loc: import('@playwright/test').Locator) =>
-    loc.evaluate((el) => {
-      const parse = (c: string): [number, number, number, number] => {
-        let m = c.match(/rgba?\(([^)]+)\)/);
-        if (m) {
-          const v = m[1].split(/[ ,/]+/).filter(Boolean).map(Number);
-          return [v[0], v[1], v[2], v[3] ?? 1];
-        }
-        m = c.match(/color\(srgb ([^)]+)\)/);
-        if (m) {
-          const v = m[1].split(/[ /]+/).filter(Boolean).map(Number);
-          return [v[0] * 255, v[1] * 255, v[2] * 255, v[3] ?? 1];
-        }
-        return [0, 0, 0, 0];
-      };
-      const over = (top: number[], bot: number[]) => {
-        const a = top[3];
-        return [0, 1, 2].map((i) => top[i] * a + bot[i] * (1 - a)).concat([1]);
-      };
-      let bg: number[] = [253, 243, 227, 1];
-      const chain: Element[] = [];
-      for (let n: Element | null = el; n; n = n.parentElement) chain.push(n);
-      for (const n of chain.reverse()) bg = over(parse(getComputedStyle(n).backgroundColor), bg);
-      const fg = over(parse(getComputedStyle(el).color), bg);
-      const lum = (c: number[]) => {
-        const f = (v: number) => ((v /= 255) <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
-        return 0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2]);
-      };
-      const [hi, lo] = [lum(fg), lum(bg)].sort((a, b) => b - a);
-      return (hi + 0.05) / (lo + 0.05);
-    });
-
   test('every event button is readable at rest and on hover, in every theme', async ({ page }) => {
     await unlock(page, 'Alex Rivera'); // sample events include the dark "reception" theme
     await expect(page.locator('.hero')).toBeVisible();

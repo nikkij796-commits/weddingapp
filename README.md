@@ -19,6 +19,17 @@ Mobile-first, installable (PWA) guest site. Guests enter their **name + wedding 
 2. Run `WEDDING_CODE=<code> npm run publish:data`. It is **blocked** if copy mentions budget, contract, vendor, invoice, deposit, payment, large dollar amounts, etc.
 3. Commit `public/vault/` and push (see Hosting).
 
+## Pages and what feeds them
+Bottom bar: **Weekend, Program, Meals, Rides, More**. More opens **Weather, Hotel map, FAQ, Updates**. Everything comes from `data/raw/content.json` (plus events) and is optional; an empty section shows a "Coming soon" placeholder.
+
+| Field in `content.json` | Page | Notes |
+| --- | --- | --- |
+| `program: { intro, sections: [{title, body}] }` | Program | Empty = placeholder. Blank lines in `body` make paragraphs. |
+| `meals: { intro, items: [{eventId, label, time?, menu?, notes?}] }` | Meals | Time and place come from the event; a guest only sees meals for events they're invited to. No `menu` shows "Menu to be announced". |
+| `rides: { intro, steps[], voucher: {code, note}, tips[] }` | Rides | Empty voucher = placeholder. Ride buttons open Uber with the destination filled in (every event venue and every map place). Dollar amounts are allowed here only. |
+| `map: { intro, imagePath?, imageAlt?, places: [{name, address, note?}] }` | Hotel map | Embeds a Google map of the first place. Put a property-map image in `public/` and set `imagePath` (e.g. `resort-map.png`). |
+| `weather: { place, latitude, longitude }` | Weather | Live from Open-Meteo. Within 15 days: the real forecast, with the temperature at each event's start. Earlier: "typical weather" averaged from the past 8 years, with the date the live forecast starts. Only the guest's own event days are shown. Needs internet; falls back to a saved copy. |
+
 ## Hosting: GitHub Pages
 The site is static and deploys with `.github/workflows/deploy.yml` on every push to `main` or `claude/wedding-guest-app` (typecheck, unit tests, build, privacy scan, then publish). Live at `https://nikkij796-commits.github.io/weddingapp/`.
 

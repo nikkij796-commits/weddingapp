@@ -8,7 +8,10 @@ import { buildIcs } from './core/links';
 import type { GuestPayload } from './core/types';
 import { failureDelayMs, unlock } from './core/vaultClient';
 import type { Outcome } from './core/vault';
-import { TABS, renderApp, renderGate, renderPartyPicker, type TabId } from './ui/render';
+import { eventDays } from './core/weather';
+import { loadWeather } from './core/weatherClient';
+import { ALL_TABS, renderApp, renderGate, renderPartyPicker, type TabId, type WeatherState } from './ui/render';
+import { renderWeatherBody } from './ui/pages';
 
 const root = document.getElementById('root')!;
 const KEY = 'wedding.session.v1';
@@ -17,6 +20,9 @@ const MAX_AGE = 1000 * 60 * 60 * 24 * 14;
 let payload: GuestPayload | null = null;
 let tab: TabId = 'weekend';
 let jumpedToToday = false;
+let weatherState: WeatherState = { phase: 'loading' };
+let weatherLoadedAt = 0;
+let weatherRun = 0;
 
 function load(): GuestPayload | null {
   try {
@@ -47,6 +53,8 @@ async function handle(run: () => Promise<Outcome>): Promise<string | null> {
     if (outcome.kind === 'ok') {
       failures = 0;
       payload = outcome.payload;
+      weatherState = { phase: 'loading' };
+      weatherLoadedAt = 0;
       save(payload);
       tab = 'weekend';
       showApp();
@@ -107,7 +115,7 @@ function showGate(error = '') {
 function showApp() {
   if (!payload) return showGate();
   const p = payload;
-  root.innerHTML = renderApp(p, tab, new Date());
+  root.innerHTML = renderApp(p, tab, new Date(), weatherState);
   if (tab === 'weekend' && !jumpedToToday) {
     jumpedToToday = true; // on the weekend itself, open at today's schedule
     root.querySelector('[data-today]')?.scrollIntoView({ block: 'start' });
@@ -115,7 +123,7 @@ function showApp() {
   root.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach((b) =>
     b.addEventListener('click', () => {
       tab = b.dataset.tab as TabId;
-      if (!TABS.some((t) => t.id === tab)) tab = 'weekend';
+      if (!ALL_TABS.includes(tab)) tab = 'weekend';
       showApp();
       window.scrollTo({ top: 0 });
     }),
@@ -132,12 +140,62 @@ function showApp() {
       URL.revokeObjectURL(a.href);
     }),
   );
+  if (tab === 'weather') void refreshWeather();
   document.getElementById('signout')?.addEventListener('click', () => {
     payload = null;
+    weatherState = { phase: 'loading' };
+    weatherLoadedAt = 0;
     save(null);
     showGate();
   });
 }
+
+function paintWeather(p: GuestPayload) {
+  if (tab !== 'weather') return;
+  const el = document.getElementById('weather-root');
+  if (el) el.innerHTML = renderWeatherBody(p, weatherState, new Date());
+}
+
+/** Loads (or reloads) the forecast for this guest's event days, at most every 10 minutes unless forced. */
+async function refreshWeather(force = false) {
+  const p = payload;
+  const cfg = p?.content.weather;
+  if (!p || !cfg) return;
+  if (!force && weatherState.phase === 'ready' && Date.now() - weatherLoadedAt < 10 * 60_000) return;
+  const run = ++weatherRun;
+  weatherState = { phase: 'loading' };
+  paintWeather(p);
+  const result = await loadWeather(cfg, eventDays(p.events, p.content.timezone), p.content.timezone);
+  if (run !== weatherRun) return;
+  weatherState = result;
+  weatherLoadedAt = Date.now();
+  paintWeather(p);
+}
+
+// One delegated listener for actions inside pages that re-render (jump links, copy code, weather retry).
+root.addEventListener('click', async (ev) => {
+  const el = (ev.target as HTMLElement).closest<HTMLElement>('[data-jump],[data-copy],[data-retry]');
+  if (!el) return;
+  if (el.dataset.jump) {
+    document.getElementById(el.dataset.jump)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } else if (el.dataset.copy !== undefined) {
+    const text = el.dataset.copy;
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const ta = Object.assign(document.createElement('textarea'), { value: text });
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      ta.remove();
+    }
+    const label = el.textContent;
+    el.textContent = 'Copied';
+    setTimeout(() => (el.textContent = label), 1500);
+  } else if (el.hasAttribute('data-retry')) {
+    void refreshWeather(true);
+  }
+});
 
 payload = load();
 if (payload) showApp();

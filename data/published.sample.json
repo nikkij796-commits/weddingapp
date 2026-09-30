@@ -33,7 +33,66 @@
         "at": "2027-05-01T09:00:00-04:00",
         "message": "Shuttle schedule will be posted here one week before the wedding."
       }
-    ]
+    ],
+    "program": {
+      "intro": "",
+      "sections": []
+    },
+    "meals": {
+      "intro": "Meals served during the weekend.",
+      "items": [
+        {
+          "eventId": "welcome",
+          "label": "Welcome drinks & bites",
+          "menu": "Passed appetizers and a signature cocktail"
+        },
+        {
+          "eventId": "reception",
+          "label": "Dinner",
+          "time": "7:00 PM",
+          "notes": "Vegetarian options available."
+        },
+        {
+          "eventId": "brunch",
+          "label": "Farewell brunch"
+        }
+      ]
+    },
+    "rides": {
+      "intro": "Uber credit is provided for the weekend.",
+      "steps": [
+        "Open the Uber app and add your voucher code under Wallet.",
+        "Tap a Ride button below to set the destination.",
+        "Confirm the pickup spot and request your ride."
+      ],
+      "voucher": {
+        "code": "SAMPLE-RIDE-50",
+        "note": "Worth $150 per household. Expires June 14."
+      },
+      "tips": [
+        "Expect a short wait after the reception; share rides when you can."
+      ]
+    },
+    "map": {
+      "intro": "Everything is within walking distance of the main lobby.",
+      "places": [
+        {
+          "name": "The Garden Terrace",
+          "address": "100 Example Street, Sampleville, NY 10001",
+          "note": "Host hotel and venue"
+        },
+        {
+          "name": "Example Inn",
+          "address": "12 Sample Road, Sampleville, NY 10001",
+          "note": "Overflow hotel"
+        }
+      ]
+    },
+    "weather": {
+      "place": "Sampleville, NY",
+      "latitude": 40.71,
+      "longitude": -74.0
+    }
   },
   "events": [
     {

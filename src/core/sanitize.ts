@@ -25,9 +25,10 @@ export const FORBIDDEN = [
 const FORBIDDEN_RE = new RegExp(`\\b(${FORBIDDEN.map((t) => t.replace(/ /g, '\\s+')).join('|')})\\b`, 'i');
 const DOLLAR_RE = /\$\s?\d[\d,]{2,}/; // large dollar amounts look like pricing
 
-export function findForbidden(text: string): string | null {
+export function findForbidden(text: string, opts: { allowDollars?: boolean } = {}): string | null {
   const m = FORBIDDEN_RE.exec(text);
   if (m) return m[1];
+  if (opts.allowDollars) return null;
   const d = DOLLAR_RE.exec(text);
   return d ? d[0] : null;
 }
@@ -80,7 +81,54 @@ export function pickContent(raw: any): Content {
     updates: Array.isArray(raw?.updates)
       ? raw.updates.map((u: any) => ({ id: str(u?.id), at: str(u?.at), message: str(u?.message) }))
       : [],
+    program: {
+      intro: str(raw?.program?.intro),
+      sections: list(raw?.program?.sections).map((x: any) => ({ title: str(x?.title), body: str(x?.body) })).filter((x) => x.title || x.body),
+    },
+    meals: {
+      intro: str(raw?.meals?.intro),
+      items: list(raw?.meals?.items)
+        .map((x: any) => {
+          const item: Content['meals']['items'][number] = { eventId: str(x?.eventId), label: str(x?.label) };
+          for (const k of ['time', 'menu', 'notes'] as const) if (str(x?.[k])) item[k] = str(x[k]);
+          return item;
+        })
+        .filter((x) => x.eventId && x.label),
+    },
+    rides: {
+      intro: str(raw?.rides?.intro),
+      steps: list(raw?.rides?.steps).map((x: unknown) => str(x)).filter(Boolean),
+      voucher: { code: str(raw?.rides?.voucher?.code), note: str(raw?.rides?.voucher?.note) },
+      tips: list(raw?.rides?.tips).map((x: unknown) => str(x)).filter(Boolean),
+    },
+    map: pickMap(raw?.map),
+    weather: pickWeather(raw?.weather),
   };
+}
+
+const list = (v: unknown): any[] => (Array.isArray(v) ? v : []);
+
+function pickMap(m: any): Content['map'] {
+  const out: Content['map'] = {
+    intro: str(m?.intro),
+    places: list(m?.places)
+      .map((x: any) => {
+        const place: Content['map']['places'][number] = { name: str(x?.name), address: str(x?.address) };
+        if (str(x?.note)) place.note = str(x.note);
+        return place;
+      })
+      .filter((x) => x.name && x.address),
+  };
+  if (str(m?.imagePath)) out.imagePath = str(m.imagePath);
+  if (str(m?.imageAlt)) out.imageAlt = str(m.imageAlt);
+  return out;
+}
+
+function pickWeather(w: any): Content['weather'] {
+  const lat = Number(w?.latitude);
+  const lon = Number(w?.longitude);
+  if (!w || !Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+  return { place: str(w.place, 'the venue'), latitude: lat, longitude: lon };
 }
 
 const truthy = (v: string) => /^(y|yes|true|1|x|✓|☑)$/i.test(v.trim());
@@ -166,6 +214,11 @@ export function validate(data: PublishedData): string[] {
       errors.push(`Invalid timezone "${data.content.timezone}"`);
     }
   }
+  const w = data.content.weather;
+  if (w && (Math.abs(w.latitude) > 90 || Math.abs(w.longitude) > 180)) errors.push('content.weather latitude/longitude are out of range');
+  const eventIds = new Set(data.events.map((e) => e.id));
+  for (const m of data.content.meals.items) if (!eventIds.has(m.eventId)) errors.push(`Meal "${m.label}" refers to unknown event "${m.eventId}"`);
+  if (data.content.map.imagePath && !/^[A-Za-z0-9_./-]+$/.test(data.content.map.imagePath)) errors.push('content.map.imagePath has unsafe characters');
   for (const e of data.events) {
     if (!e.id) errors.push('Event is missing an id');
     if (ids.has(e.id)) errors.push(`Duplicate event id "${e.id}"`);
@@ -239,7 +292,8 @@ export function buildPublished(input: {
   const problems = validate(data);
   // Scan guest-visible copy (not names/codes) for private-sounding language.
   for (const { path, text } of [...strings(events, 'events'), ...strings(content, 'content')]) {
-    const hit = findForbidden(text);
+    // Ride vouchers legitimately state amounts; everywhere else a dollar figure looks like pricing.
+    const hit = findForbidden(text, { allowDollars: path.startsWith('content.rides') });
     if (hit) problems.push(`Forbidden term "${hit}" in ${path}`);
   }
   if (problems.length) throw new PublishError(problems);

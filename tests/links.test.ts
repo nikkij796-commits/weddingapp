@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { appleMapsUrl, buildIcs, foldLine, googleCalendarUrl, googleMapsUrl, icsEscape } from '../src/core/links';
+import { appleMapsUrl, buildIcs, foldLine, googleCalendarUrl, googleMapsUrl, icsEscape, uberRideUrl } from '../src/core/links';
 import { sample } from './fixtures';
 
 const events = sample().events;
@@ -60,4 +60,20 @@ describe('events without a dress code', () => {
   });
   it('google calendar details omit it too', () =>
     expect(new URL(googleCalendarUrl(e)).searchParams.get('details')).toBe('Goodbye brunch.'));
+});
+
+describe('Uber deep link', () => {
+  it('sets pickup to the rider and fills in the destination', () => {
+    const u = new URL(uberRideUrl({ name: 'Andaz Scottsdale Resort', address: '6114 N Scottsdale Rd, Scottsdale, AZ 85253' }));
+    expect(u.origin + u.pathname).toBe('https://m.uber.com/ul/');
+    expect(u.searchParams.get('action')).toBe('setPickup');
+    expect(u.searchParams.get('pickup')).toBe('my_location');
+    expect(u.searchParams.get('dropoff[nickname]')).toBe('Andaz Scottsdale Resort');
+    expect(u.searchParams.get('dropoff[formatted_address]')).toBe('6114 N Scottsdale Rd, Scottsdale, AZ 85253');
+  });
+  it('encodes special characters safely', () => {
+    const u = new URL(uberRideUrl({ name: "Bob's & Sue's", address: '1 A St #2' }));
+    expect(u.searchParams.get('dropoff[nickname]')).toBe("Bob's & Sue's");
+    expect(u.searchParams.get('dropoff[formatted_address]')).toBe('1 A St #2');
+  });
 });

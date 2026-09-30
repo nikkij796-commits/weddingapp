@@ -214,3 +214,66 @@ describe('event moments (run-of-show lines)', () => {
     expect(() => buildPublished({ code: 'ABCD1', events, content: base.content, guestsCsv: 'Name\nA B' })).toThrow(/vendor/i);
   });
 });
+
+describe('new guide content (program, meals, rides, map, weather)', () => {
+  const raw = {
+    ...base.content,
+    program: { intro: ' Hello ', sections: [{ title: 'Baraat', body: 'Order of events', secret: 'x' }, { title: '', body: '' }] },
+    meals: { intro: '', items: [{ eventId: 'welcome', label: 'Dinner', menu: 'Buffet', vendor: 'Acme Catering', cost: 5000 }, { eventId: '', label: 'no event' }, { eventId: 'welcome', label: '' }] },
+    rides: { intro: 'Uber vouchers', steps: [' Open app ', '', 42], voucher: { code: ' RIDE50 ', note: 'Worth $150 each', internal: 'x' }, tips: ['Share rides'] },
+    map: { intro: 'Map', imagePath: 'resort-map.png', places: [{ name: 'Andaz', address: '6114 N Scottsdale Rd', note: 'Venue', extra: 1 }, { name: '', address: 'x' }] },
+    weather: { place: 'Scottsdale, AZ', latitude: '33.53', longitude: -111.93, apiKey: 'nope' },
+  };
+  const make = (content: unknown = raw, over: object = {}) =>
+    buildPublished({ code: 'ABCD1', events: base.events, content, guestsCsv: 'Name\nA B', ...over });
+
+  it('keeps only allowlisted fields', () => {
+    const c = make().content;
+    expect(c.program).toEqual({ intro: 'Hello', sections: [{ title: 'Baraat', body: 'Order of events' }] });
+    expect(c.meals.items).toEqual([{ eventId: 'welcome', label: 'Dinner', menu: 'Buffet' }]);
+    expect(c.rides).toEqual({ intro: 'Uber vouchers', steps: ['Open app'], voucher: { code: 'RIDE50', note: 'Worth $150 each' }, tips: ['Share rides'] });
+    expect(c.map.places).toEqual([{ name: 'Andaz', address: '6114 N Scottsdale Rd', note: 'Venue' }]);
+    expect(c.weather).toEqual({ place: 'Scottsdale, AZ', latitude: 33.53, longitude: -111.93 });
+    expect(JSON.stringify(c)).not.toMatch(/Acme|5000|apiKey|internal|secret/);
+  });
+  it('fills in empty defaults when the new fields are missing', () => {
+    const c = make({ ...base.content, program: undefined, meals: undefined, rides: undefined, map: undefined, weather: undefined }).content;
+    expect(c.program).toEqual({ intro: '', sections: [] });
+    expect(c.meals).toEqual({ intro: '', items: [] });
+    expect(c.rides).toEqual({ intro: '', steps: [], voucher: { code: '', note: '' }, tips: [] });
+    expect(c.map).toEqual({ intro: '', places: [] });
+    expect(c.weather).toBeNull();
+  });
+  it('allows a dollar amount in ride voucher text only', () => {
+    expect(() => make()).not.toThrow();
+    expect(() => make({ ...raw, meals: { intro: 'Each plate is $150', items: [] } })).toThrow(/\$150/);
+    expect(() => make({ ...raw, program: { intro: 'Gift of $500', sections: [] } })).toThrow(/\$500/);
+  });
+  it('still blocks private terms inside ride text', () => {
+    expect(() => make({ ...raw, rides: { ...raw.rides, tips: ['Ask the vendor'] } })).toThrow(/vendor/i);
+  });
+  it('blocks private terms in meals, program and map text', () => {
+    expect(() => make({ ...raw, meals: { intro: '', items: [{ eventId: 'welcome', label: 'Dinner', notes: 'Catering contract details' }] } })).toThrow(/contract/i);
+    expect(() => make({ ...raw, program: { intro: 'See the budget', sections: [] } })).toThrow(/budget/i);
+    expect(() => make({ ...raw, map: { ...raw.map, intro: 'Vendor entrance' } })).toThrow(/vendor/i);
+  });
+  it('rejects a meal that points at an unknown event', () =>
+    expect(() => make({ ...raw, meals: { intro: '', items: [{ eventId: 'ghost', label: 'Dinner' }] } })).toThrow(/unknown event "ghost"/));
+  it('rejects out-of-range coordinates and unsafe image paths', () => {
+    expect(() => make({ ...raw, weather: { place: 'x', latitude: 91, longitude: 0 } })).toThrow(/out of range/);
+    expect(() => make({ ...raw, map: { ...raw.map, imagePath: '../../etc/passwd?x=1' } })).toThrow(/unsafe/);
+  });
+  it('treats non-numeric weather coordinates as "not configured"', () => {
+    expect(make({ ...raw, weather: { place: 'x', latitude: 'abc', longitude: 1 } }).content.weather).toBeNull();
+    expect(make({ ...raw, weather: null }).content.weather).toBeNull();
+  });
+  it('the new content survives the encrypted vault', async () => {
+    const { buildVault, unlockVault } = await import('../src/core/vault');
+    const files = await buildVault(make(), 'luke', { iterations: 1000 });
+    const r = await unlockVault(async (p) => files[p] ?? null, 'A B', 'luke');
+    if (r.kind !== 'ok') throw new Error('expected ok');
+    expect(r.payload.content.rides.voucher.code).toBe('RIDE50');
+    expect(r.payload.content.weather?.latitude).toBe(33.53);
+    expect(Object.values(files).join('')).not.toContain('RIDE50');
+  });
+});

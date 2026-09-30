@@ -132,7 +132,8 @@ describe('what is published is ciphertext', () => {
   });
   it('contains no readable guest, event, or code text anywhere', () => {
     const all = Object.values(files).join('\n');
-    for (const secret of ['Rivera', 'Rosewood', 'Garden Terrace', 'Grand Ballroom', 'FOREVER', 'Kim', 'Sam Chen', 'Ceremony', 'Sampleville', 'welcome', 'Brunch'])
+    // Only strings that cannot occur by chance in random base64 (long, or containing spaces/punctuation).
+    for (const secret of ['Rivera', 'Rosewood', 'Garden Terrace', 'Grand Ballroom', 'FOREVER', 'Lee Kim', 'Sam Chen', 'Ceremony', 'Sampleville', 'Farewell Brunch', "O'Brien"])
       expect(all, secret).not.toContain(secret);
   });
   it('every data string is long base64 (no short plaintext)', () => {

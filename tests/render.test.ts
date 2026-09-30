@@ -85,16 +85,19 @@ describe('other tabs', () => {
   });
   it('app shell marks the active tab', () => {
     const h = renderApp(p, 'faq', before);
-    expect(h).toMatch(/data-tab="faq" aria-current="page"/);
+    // FAQ lives under More, so the More button is the lit one
+    expect(h).toMatch(/data-tab="more" aria-current="page"/);
     expect(h).toContain('id="signout"');
   });
 });
 
-describe('three tabs, no Travel', () => {
+describe('bottom bar', () => {
   const p = payloadFor('Sam Chen');
-  it('has Weekend, FAQ and Updates only', () => {
+  it('has five items: Weekend, Program, Meals, Rides, More (no Travel)', () => {
     const h = renderApp(p, 'weekend', before);
-    expect(h.match(/data-tab="/g)).toHaveLength(3);
+    const bar = h.slice(h.indexOf('<nav class="tabs"'), h.indexOf('</nav>'));
+    expect(bar.match(/data-tab="/g)).toHaveLength(5);
+    for (const l of ['Weekend', 'Program', 'Meals', 'Rides', 'More']) expect(bar).toContain(`<span>${l}</span>`);
     expect(h).not.toContain('Travel');
   });
 });

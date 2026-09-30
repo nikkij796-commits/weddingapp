@@ -2,15 +2,10 @@ import { appleMapsUrl, googleCalendarUrl, googleMapsUrl } from '../core/links';
 import { firstName } from '../core/matching';
 import { countdown, currentOrNext, eventStatus, formatDay, formatTime, groupByDay } from '../core/time';
 import type { EventInfo, GuestPayload } from '../core/types';
-
-export function esc(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
+import { esc } from './html';
+import { ALL_TABS, MORE_ITEMS, NAV, isMoreChild, navFor, renderMap, renderMeals, renderMore, renderProgram, renderRides, renderWeather, type TabId, type WeatherState } from './pages';
+export { esc };
+export type { TabId, WeatherState };
 
 export { firstName };
 
@@ -145,22 +140,33 @@ export function renderUpdates(p: GuestPayload, tz = p.content.timezone): string 
   }</section>`;
 }
 
-export const TABS = [
-  { id: 'weekend', label: 'Weekend' },
-  { id: 'faq', label: 'FAQ' },
-  { id: 'updates', label: 'Updates' },
-] as const;
-export type TabId = (typeof TABS)[number]['id'];
+export const TABS = NAV;
+export { ALL_TABS };
 
-export function renderApp(p: GuestPayload, tab: TabId, now: Date): string {
-  const body =
-    tab === 'weekend' ? renderWeekend(p, now) : tab === 'faq' ? renderFaq(p) : renderUpdates(p);
+export function renderApp(p: GuestPayload, tab: TabId, now: Date, weather: WeatherState = { phase: 'loading' }): string {
+  const pages: Record<TabId, () => string> = {
+    weekend: () => renderWeekend(p, now),
+    program: () => renderProgram(p),
+    meals: () => renderMeals(p),
+    rides: () => renderRides(p),
+    more: () => renderMore(),
+    weather: () => renderWeather(p, weather, now),
+    map: () => renderMap(p),
+    faq: () => renderFaq(p),
+    updates: () => renderUpdates(p),
+  };
+  const active = navFor(tab);
+  const back = isMoreChild(tab)
+    ? `<button type="button" class="back" data-tab="more">&lsaquo; More</button>`
+    : '';
   return `
   <div class="app">
-    <main id="content" tabindex="-1">${body}</main>
+    <main id="content" tabindex="-1">${back}${pages[tab]()}</main>
     <nav class="tabs" aria-label="Sections">
-      ${TABS.map((t) => `<button type="button" data-tab="${t.id}" ${t.id === tab ? 'aria-current="page"' : ''}>${t.label}</button>`).join('')}
+      ${NAV.map((t) => `<button type="button" data-tab="${t.id}" ${t.id === active ? 'aria-current="page"' : ''}>${t.icon}<span>${t.label}</span></button>`).join('')}
     </nav>
     <footer class="foot"><button type="button" id="signout" class="link">Not you? Sign out</button></footer>
   </div>`;
 }
+
+export { MORE_ITEMS };

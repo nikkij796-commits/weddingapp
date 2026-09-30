@@ -34,6 +34,15 @@ export interface Content {
   faq: { q: string; a: string }[];
   contact: { label: string; detail: string };
   updates: { id: string; at: string; message: string }[];
+  /** Virtual wedding program. Empty sections show a "coming soon" placeholder. */
+  program: { intro: string; sections: { title: string; body: string }[] };
+  /** Meals are tied to events, so times and places come from the event and only invited guests see them. */
+  meals: { intro: string; items: { eventId: string; label: string; time?: string; menu?: string; notes?: string }[] };
+  rides: { intro: string; steps: string[]; voucher: { code: string; note: string }; tips: string[] };
+  /** Hotel / resort map: an embedded map of the first place, an optional property map image, and a list of places. */
+  map: { intro: string; imagePath?: string; imageAlt?: string; places: { name: string; address: string; note?: string }[] };
+  /** Where to get the live weather from. Null hides the forecast and shows "coming soon". */
+  weather: { place: string; latitude: number; longitude: number } | null;
 }
 
 /** Server-side only. Never shipped to the browser bundle. */

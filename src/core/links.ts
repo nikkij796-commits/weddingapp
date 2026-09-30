@@ -8,6 +8,17 @@ export function googleMapsUrl(e: Pick<EventInfo, 'venue' | 'address'>): string {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${e.venue}, ${e.address}`)}`;
 }
 
+/** Opens the Uber app (or m.uber.com) with the destination filled in and pickup at the guest's location. */
+export function uberRideUrl(dest: { name: string; address: string }): string {
+  const p = new URLSearchParams({
+    action: 'setPickup',
+    pickup: 'my_location',
+    'dropoff[nickname]': dest.name,
+    'dropoff[formatted_address]': dest.address,
+  });
+  return `https://m.uber.com/ul/?${p.toString()}`;
+}
+
 export function appleMapsUrl(e: Pick<EventInfo, 'venue' | 'address'>): string {
   return `https://maps.apple.com/?q=${encodeURIComponent(`${e.venue}, ${e.address}`)}`;
 }
