@@ -39,6 +39,7 @@ export function pickEvents(raw: unknown): EventInfo[] {
 export function pickContent(raw: any): Content {
   return {
     coupleNames: str(raw?.coupleNames),
+    ...(/^[a-z0-9-]{1,40}$/.test(str(raw?.coverImage)) ? { coverImage: str(raw.coverImage) } : {}),
     tagline: str(raw?.tagline),
     timezone: str(raw?.timezone),
     welcome: str(raw?.welcome),

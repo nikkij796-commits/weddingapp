@@ -20,6 +20,10 @@ Mobile-first, installable (PWA) guest site. Guests enter their **name + wedding 
 3. Commit `public/vault/` and push (see Hosting).
 
 ## Pages and what feeds them
+Cover: put the invitation cover at `data/raw/cover.jpg` (never committed). Publishing encrypts it into the vault (`img/cover.json`), so only guests who unlock can see it; it then replaces the drawn header at the top of the guide.
+
+Appearance: the guide follows the phone's light/dark setting; guests can pick Light or Dark under More (remembered on that phone).
+
 Weekend: during the weekend (from 24 hours before the guest's first event) the top shows **Happening now / Up next / Next meal**; before that, a countdown. "Add all N events to my calendar" downloads one calendar file. Each event has one **Directions** button (Apple Maps on iPhone/Mac, Google Maps elsewhere) and one **Add to calendar** button (calendar file on iPhone/Mac, Google Calendar elsewhere).
 
 Bottom bar: **Weekend, Program, Meals, Rides, More**. More opens **Weather, Hotel map, FAQ, Updates**. Everything comes from `data/raw/content.json` (plus events) and is optional; an empty section shows a "Coming soon" placeholder.

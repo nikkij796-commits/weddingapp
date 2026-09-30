@@ -99,3 +99,14 @@ describe('shared content shaping', () => {
     expect(pickEvents(sample().events)).toHaveLength(4);
   });
 });
+
+describe('saved cover image', () => {
+  const base = { guestName: 'A', householdNames: [], events: [], content: { timezone: 'America/Phoenix' } };
+  it('keeps a plain image data URL', () => {
+    const cover = 'data:image/jpeg;base64,/9j/4AAQ';
+    expect(normalizePayload({ ...base, cover })?.cover).toBe(cover);
+  });
+  it.each(['data:text/html;base64,PHNjcmlwdD4=', 'javascript:alert(1)', 'https://example.com/x.jpg', 'data:image/jpeg;base64,"><script>', 42])('drops %j', (cover) => {
+    expect(normalizePayload({ ...base, cover })?.cover).toBeUndefined();
+  });
+});

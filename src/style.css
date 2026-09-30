@@ -89,7 +89,7 @@ section { padding-top: 2rem; }
 
 /* ---------- Event cards: arched frame, one color world per event (from the invitation) ---------- */
 .event {
-  --ev: #c8862a; --ev-soft: #f6d9a0; --panel: #fdefd6; --ink-on: var(--ink); --accent: var(--maroon); --chip-bg: color-mix(in srgb, var(--panel) 70%, white);
+  --ev: #c8862a; --ev-soft: #f6d9a0; --panel: #fdefd6; --ink-on: var(--ink); --accent: #7a1f2b; --chip-bg: color-mix(in srgb, var(--panel) 70%, white);
   margin-bottom: 1.6rem;
 }
 .event[data-event='mehendi']   { --ev: #5f7a4f; --ev-soft: #dfe6cf; --panel: #f8e8d0; --accent: #b84a6b; }
@@ -373,3 +373,71 @@ button.where-btn:hover, button.where-btn:focus-visible { border-color: var(--mar
 @media (hover: hover) { .daystrip button:hover { background: var(--maroon); color: var(--cream); border-color: var(--maroon); } }
 @media (hover: hover) { .daystrip button:hover span { color: var(--sand); } }
 @media (hover: hover) { .cal-all:hover { background: var(--maroon); color: var(--cream); } }
+
+/* ---------- Dark mode: follows the phone (Auto) unless the guest picks Light or Dark under More ---------- */
+:root[data-theme='dark'] { --cream: #16100c; --sand: #2c2018; --ink: #f1e3cc; --muted: #c2ac8e; --maroon: #e9c77f; --line: #3b2a1f; --danger: #ff9a8a;
+  --panel: #231913; --chip-bg: #231913; --surface: #231913; color-scheme: dark; }
+:root[data-theme='dark'] body { background: #16100c; }
+:root[data-theme='dark'] .hero { background: radial-gradient(700px 300px at 50% 0, #4a2a1a 0, rgba(0, 0, 0, 0) 70%), linear-gradient(180deg, #2a1810, #16100c); }
+:root[data-theme='dark'] .hero .scene { opacity: .55; }
+:root[data-theme='dark'] .gate { background: radial-gradient(900px 420px at 50% 0, #4a2a1a 0, rgba(0, 0, 0, 0) 70%), linear-gradient(180deg, #2a1810, #16100c); }
+:root[data-theme='dark'] .gate-card { background-color: #7a1f2b; }
+:root[data-theme='dark'] .gate-inner { background: #1e1511; }
+:root[data-theme='dark'] input, :root[data-theme='dark'] .party { background: #231913; border-color: #4a3526; color: var(--ink); }
+:root[data-theme='dark'] .btn { background: #e9c77f; color: #231913; }
+:root[data-theme='dark'] .btn:hover { background: #f3d99b; }
+:root[data-theme='dark'] .card, :root[data-theme='dark'] .menu-card, :root[data-theme='dark'] .where-btn, :root[data-theme='dark'] .daystrip button, :root[data-theme='dark'] .jump button, :root[data-theme='dark'] .pin-info, :root[data-theme='dark'] .jain-legend, :root[data-theme='dark'] .theme-switch { background: #231913; border-color: #3b2a1f; }
+:root[data-theme='dark'] .nn-row:not(.live), :root[data-theme='dark'] .cal-all { background: rgba(35, 25, 19, .92); border-color: #4a3526; }
+:root[data-theme='dark'] .nn-row.live b, :root[data-theme='dark'] .nn-row.live .nn-tag, :root[data-theme='dark'] .nn-row.live .nn-meta, :root[data-theme='dark'] .nn-row.live::after { color: #231913; }
+:root[data-theme='dark'] .nn-row.live .pulse { background: #231913; }
+:root[data-theme='dark'] .menu-icon { background: #2c2018; }
+:root[data-theme='dark'] .soon-panel { background: #211812; border-color: #4a3526; }
+:root[data-theme='dark'] .notice, :root[data-theme='dark'] .wx-tip { background: #2c2018; }
+:root[data-theme='dark'] .tabs, :root[data-theme='dark'] .daystrip { background: rgba(22, 16, 12, .94); }
+:root[data-theme='dark'] .pin::before, :root[data-theme='dark'] .pin-dot { background: #7a1f2b; }
+:root[data-theme='dark'] .pin-dot { color: #fff; }
+:root[data-theme='dark'] .pin.active::before { background: #e8a020; }
+:root[data-theme='dark'] .map-scroll { background: #efe6d8; }
+:root[data-theme='dark'] .event:not([data-event='reception']) { --ink-on: #3b2418; }
+:root[data-theme='dark'] .event .frame { box-shadow: 0 20px 40px -26px #000; }
+:root[data-theme='dark'] .event.past { opacity: .5; }
+@media (prefers-color-scheme: dark) {
+:root:not([data-theme='light']) { --cream: #16100c; --sand: #2c2018; --ink: #f1e3cc; --muted: #c2ac8e; --maroon: #e9c77f; --line: #3b2a1f; --danger: #ff9a8a;
+  --panel: #231913; --chip-bg: #231913; --surface: #231913; color-scheme: dark; }
+:root:not([data-theme='light']) body { background: #16100c; }
+:root:not([data-theme='light']) .hero { background: radial-gradient(700px 300px at 50% 0, #4a2a1a 0, rgba(0, 0, 0, 0) 70%), linear-gradient(180deg, #2a1810, #16100c); }
+:root:not([data-theme='light']) .hero .scene { opacity: .55; }
+:root:not([data-theme='light']) .gate { background: radial-gradient(900px 420px at 50% 0, #4a2a1a 0, rgba(0, 0, 0, 0) 70%), linear-gradient(180deg, #2a1810, #16100c); }
+:root:not([data-theme='light']) .gate-card { background-color: #7a1f2b; }
+:root:not([data-theme='light']) .gate-inner { background: #1e1511; }
+:root:not([data-theme='light']) input, :root:not([data-theme='light']) .party { background: #231913; border-color: #4a3526; color: var(--ink); }
+:root:not([data-theme='light']) .btn { background: #e9c77f; color: #231913; }
+:root:not([data-theme='light']) .btn:hover { background: #f3d99b; }
+:root:not([data-theme='light']) .card, :root:not([data-theme='light']) .menu-card, :root:not([data-theme='light']) .where-btn, :root:not([data-theme='light']) .daystrip button, :root:not([data-theme='light']) .jump button, :root:not([data-theme='light']) .pin-info, :root:not([data-theme='light']) .jain-legend, :root:not([data-theme='light']) .theme-switch { background: #231913; border-color: #3b2a1f; }
+:root:not([data-theme='light']) .nn-row:not(.live), :root:not([data-theme='light']) .cal-all { background: rgba(35, 25, 19, .92); border-color: #4a3526; }
+:root:not([data-theme='light']) .nn-row.live b, :root:not([data-theme='light']) .nn-row.live .nn-tag, :root:not([data-theme='light']) .nn-row.live .nn-meta, :root:not([data-theme='light']) .nn-row.live::after { color: #231913; }
+:root:not([data-theme='light']) .nn-row.live .pulse { background: #231913; }
+:root:not([data-theme='light']) .menu-icon { background: #2c2018; }
+:root:not([data-theme='light']) .soon-panel { background: #211812; border-color: #4a3526; }
+:root:not([data-theme='light']) .notice, :root:not([data-theme='light']) .wx-tip { background: #2c2018; }
+:root:not([data-theme='light']) .tabs, :root:not([data-theme='light']) .daystrip { background: rgba(22, 16, 12, .94); }
+:root:not([data-theme='light']) .pin::before, :root:not([data-theme='light']) .pin-dot { background: #7a1f2b; }
+:root:not([data-theme='light']) .pin-dot { color: #fff; }
+:root:not([data-theme='light']) .pin.active::before { background: #e8a020; }
+:root:not([data-theme='light']) .map-scroll { background: #efe6d8; }
+:root:not([data-theme='light']) .event:not([data-event='reception']) { --ink-on: #3b2418; }
+:root:not([data-theme='light']) .event .frame { box-shadow: 0 20px 40px -26px #000; }
+:root:not([data-theme='light']) .event.past { opacity: .5; }
+}
+
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.hero.has-cover { padding-top: 0; background: var(--cream); }
+.hero .cover { display: block; width: calc(100% + 32px); max-width: none; margin: 0 -16px 1.1rem; aspect-ratio: 5 / 7; object-fit: cover; }
+@media (min-width: 700px) { .hero .cover { width: 100%; margin: 1rem 0 1.1rem; border-radius: var(--radius); box-shadow: var(--shadow); } }
+
+.theme-switch { margin-top: 1.2rem; padding: 1rem 1.1rem; background: #fffaf1; border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); }
+.theme-switch h3 { font-family: var(--title); font-weight: 600; font-size: 1.3rem; margin: 0 0 .6rem; }
+.seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: .4rem; }
+.seg button { min-height: 44px; font: inherit; font-size: .9rem; font-weight: 500; color: var(--ink); background: transparent; border: 1px solid var(--line); border-radius: 10px; cursor: pointer; }
+.seg button[aria-pressed='true'] { background: var(--maroon); border-color: var(--maroon); color: var(--cream); }
+.theme-switch .muted { font-size: .85rem; margin: .6rem 0 0; }

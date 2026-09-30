@@ -162,15 +162,19 @@ export function renderWeekend(p: GuestPayload, now: Date): string {
   const nn = renderNowNext(p, now);
   const datable = p.events.filter((e) => !e.timeTbd).length;
   return `
-  <section class="hero">
-    <p class="eyebrow">Welcome, ${esc(firstName(p.guestName))}</p>
+  <section class="hero${p.cover ? ' has-cover' : ''}">
+    ${
+      p.cover
+        ? `<h1 class="sr-only">${esc(p.content.coupleNames)}</h1><img class="cover" src="${esc(p.cover)}" alt="${esc(p.content.coupleNames)}${p.content.tagline ? `, ${esc(p.content.tagline)}` : ''}"><p class="eyebrow">Welcome, ${esc(firstName(p.guestName))}</p>`
+        : `<p class="eyebrow">Welcome, ${esc(firstName(p.guestName))}</p>
     <h1 class="monogram">${esc(p.content.coupleNames)}</h1>
-    ${p.content.tagline ? `<p class="tagline">${esc(p.content.tagline)}</p>` : ''}
+    ${p.content.tagline ? `<p class="tagline">${esc(p.content.tagline)}</p>` : ''}`
+    }
     ${nn || renderCountdown(p, now)}
     ${nn ? '' : `<p class="welcome">${esc(p.content.welcome)}</p>`}
     ${others.length ? `<p class="household">Your party: ${esc(others.join(', '))}</p>` : ''}
     ${datable > 1 ? `<button type="button" class="cal-all" data-cal="all">${ICON_CAL} Add all ${datable} events to my calendar</button>` : ''}
-    ${DESERT_SCENE}
+    ${p.cover ? '' : DESERT_SCENE}
   </section>
   ${
     days.length

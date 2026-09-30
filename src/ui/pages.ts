@@ -70,7 +70,13 @@ export function renderMore(): string {
   return `${head('More')}
   <div class="menu-grid">
     ${MORE_ITEMS.map((m) => `<button type="button" class="menu-card" data-tab="${m.id}"><span class="menu-icon">${m.icon}</span><span class="menu-text"><b>${esc(m.title)}</b><small>${esc(m.blurb)}</small></span><span class="chev" aria-hidden="true">&rsaquo;</span></button>`).join('')}
-  </div>`;
+  </div>
+  <section class="theme-switch" aria-labelledby="theme-h"><h3 id="theme-h">Appearance</h3>
+    <div class="seg" role="group" aria-labelledby="theme-h">
+      <button type="button" data-theme-set="auto">Auto</button><button type="button" data-theme-set="light">Light</button><button type="button" data-theme-set="dark">Dark</button>
+    </div>
+    <p class="muted">Auto matches your phone&rsquo;s setting.</p>
+  </section>`;
 }
 
 // ---------- Program ----------

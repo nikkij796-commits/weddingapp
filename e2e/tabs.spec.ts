@@ -344,3 +344,56 @@ test.describe('day strip', () => {
     await expect(page.locator('.daystrip')).toHaveCount(0);
   });
 });
+
+test.describe('dark mode', () => {
+  const pages = ['Weekend', 'Meals', 'Rides', 'Hotel map', 'Weather', 'Program', 'FAQ', 'Updates'] as const;
+  const selectors = ['.chip', '.jump button', '.menu-card b', '.soon-panel h3', '.card h3', '.card p', '.meal .time', '.pill', '.nn-row b', '.nn-tag', '.where-btn b', '.where-area', '.event h3', '.event .attire', '.event .area', '.page-head h2', '.day > h2', '.wx-cond', '.wx-tip', '.faq summary', '.seg button', '.cal-all', '.eyebrow'];
+
+  test('follows the phone setting, and every page stays readable', async ({ page }) => {
+    await page.emulateMedia({ colorScheme: 'dark' });
+    await page.clock.install({ time: new Date('2027-06-12T16:10:00-04:00') }); // during the weekend: now/next is showing
+    await unlock(page, 'Alex Rivera');
+    expect(await page.evaluate(() => getComputedStyle(document.body).backgroundColor)).toBe('rgb(22, 16, 12)');
+    for (const label of pages) {
+      await openTab(page, label);
+      await expect(page.locator('#content')).toBeVisible();
+      if (label === 'Weather') await expect(page.locator('.wx-day').first()).toBeVisible();
+      for (const sel of selectors) {
+        const els = page.locator(`#content ${sel}`);
+        const n = Math.min(await els.count(), 12);
+        for (let i = 0; i < n; i++) {
+          const el = els.nth(i);
+          if (!(await el.isVisible())) continue;
+          await page.mouse.move(0, 0);
+          expect(await contrast(el), `${label} ${sel} #${i}`).toBeGreaterThanOrEqual(3);
+        }
+      }
+      const tab = page.locator('.tabs button[aria-current=page]');
+      expect(await contrast(tab), `${label} bottom bar`).toBeGreaterThanOrEqual(3);
+    }
+  });
+
+  test('the Appearance switch overrides the phone and is remembered', async ({ page }) => {
+    await page.emulateMedia({ colorScheme: 'dark' });
+    await unlock(page, 'Alex Rivera');
+    await page.locator('.tabs button', { hasText: 'More' }).click();
+    await expect(page.locator('[data-theme-set=auto]')).toHaveAttribute('aria-pressed', 'true');
+    await page.locator('[data-theme-set=light]').click();
+    await expect(page.locator('[data-theme-set=light]')).toHaveAttribute('aria-pressed', 'true');
+    expect(await page.evaluate(() => getComputedStyle(document.body).backgroundColor)).toBe('rgb(253, 243, 227)');
+    await page.reload();
+    await expect(page.locator('.tabs')).toBeVisible();
+    expect(await page.evaluate(() => getComputedStyle(document.body).backgroundColor)).toBe('rgb(253, 243, 227)');
+    await page.emulateMedia({ colorScheme: 'light' });
+    await page.locator('.tabs button', { hasText: 'More' }).click();
+    await page.locator('[data-theme-set=dark]').click();
+    expect(await page.evaluate(() => getComputedStyle(document.body).backgroundColor)).toBe('rgb(22, 16, 12)');
+    expect(await page.locator('meta[name=theme-color]').getAttribute('content')).toBe('#16100c');
+  });
+
+  test('the sign-in screen is readable in dark mode too', async ({ page }) => {
+    await page.emulateMedia({ colorScheme: 'dark' });
+    await page.goto('./');
+    for (const sel of ['.eyebrow', '.monogram', '.lede', 'label', '.btn']) expect(await contrast(page.locator(sel).first()), sel).toBeGreaterThanOrEqual(3);
+  });
+});

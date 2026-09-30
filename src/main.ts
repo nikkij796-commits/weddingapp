@@ -17,6 +17,27 @@ import { ALL_TABS, renderApp, renderGate, renderPartyPicker, renderProblem, type
 import { renderWeatherBody } from './ui/pages';
 
 const root = document.getElementById('root')!;
+
+// ---------- appearance (Auto follows the phone; Light/Dark are remembered on this device) ----------
+type Theme = 'auto' | 'light' | 'dark';
+const THEME_KEY = 'wedding.theme';
+function savedTheme(): Theme {
+  try {
+    const t = localStorage.getItem(THEME_KEY);
+    return t === 'light' || t === 'dark' ? t : 'auto';
+  } catch {
+    return 'auto';
+  }
+}
+function applyTheme(t: Theme) {
+  if (t === 'auto') delete document.documentElement.dataset.theme;
+  else document.documentElement.dataset.theme = t;
+  const dark = t === 'dark' || (t === 'auto' && window.matchMedia?.('(prefers-color-scheme: dark)').matches);
+  document.querySelector('meta[name=theme-color]')?.setAttribute('content', dark ? '#16100c' : '#fdf3e3');
+  root.querySelectorAll<HTMLElement>('[data-theme-set]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.themeSet === t)));
+}
+applyTheme(savedTheme());
+window.matchMedia?.('(prefers-color-scheme: dark)').addEventListener?.('change', () => applyTheme(savedTheme()));
 let payload: GuestPayload | null = null;
 let tab: TabId = 'weekend';
 let jumpedToToday = false;
@@ -141,6 +162,7 @@ function showApp() {
       window.scrollTo({ top: 0 });
     }),
   );
+  applyTheme(savedTheme()); // marks the selected Appearance button
   if (tab === 'weather') void refreshWeather();
   document.getElementById('signout')?.addEventListener('click', signOut);
 }
@@ -288,9 +310,18 @@ function focusPins(letters: string[], scrollPage: boolean) {
 
 // One delegated listener for actions inside pages that re-render (jump links, copy code, weather retry, map, calendar).
 root.addEventListener('click', async (ev) => {
-  const el = (ev.target as HTMLElement).closest<HTMLElement>('[data-jump],[data-copy],[data-retry],[data-cal],[data-pin],[data-mapzoom],[data-mapfocus]');
+  const el = (ev.target as HTMLElement).closest<HTMLElement>('[data-jump],[data-copy],[data-retry],[data-cal],[data-pin],[data-mapzoom],[data-mapfocus],[data-theme-set]');
   if (!el) return;
-  if (el.dataset.cal) {
+  if (el.dataset.themeSet) {
+    const t = el.dataset.themeSet as Theme;
+    try {
+      if (t === 'auto') localStorage.removeItem(THEME_KEY);
+      else localStorage.setItem(THEME_KEY, t);
+    } catch {
+      /* private mode: still applies for this visit */
+    }
+    applyTheme(t);
+  } else if (el.dataset.cal) {
     addToCalendar(el.dataset.cal);
   } else if (el.dataset.pin) {
     focusPins([el.dataset.pin], false);

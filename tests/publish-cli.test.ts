@@ -49,6 +49,19 @@ describe('publish CLI', () => {
     expect(ok.kind).toBe('ok');
     expect((await unlockVault(async (p) => files[p] ?? null, 'ann lee', 'wrong')).kind).toBe('fail');
   });
+  it('encrypts an optional cover image so only unlocked guests can see it', async () => {
+    const dir = workspace();
+    const jpeg = Buffer.from([0xff, 0xd8, 0xff, 0xe0, ...Buffer.from('COVER-PIXELS-Nikita-Andaz')]);
+    writeFileSync(join(dir, 'data/raw/cover.jpg'), jpeg);
+    expect(run(dir, 'ABCD1').status).toBe(0);
+    const text = readFileSync(join(dir, 'public/vault/img/cover.json'), 'utf8');
+    expect(text).not.toContain(jpeg.toString('base64'));
+    expect(text).not.toContain('COVER-PIXELS');
+    const read = (p: string) => { try { return readFileSync(join(dir, 'public/vault', p), 'utf8'); } catch { return null; } };
+    const { unlockVault } = await import('../src/core/vault');
+    const r = await unlockVault(async (p) => read(p), 'ann lee', 'abcd1');
+    expect(r.kind === 'ok' && r.payload.cover).toBe(`data:image/jpeg;base64,${jpeg.toString('base64')}`);
+  });
   it('replaces stale vault files on republish', () => {
     const dir = workspace();
     mkdirSync(join(dir, 'public/vault/hh'), { recursive: true });

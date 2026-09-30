@@ -1,6 +1,9 @@
 import { pickContent, pickEvents } from './content';
 import type { GuestPayload } from './types';
 
+/** Only plain base64 image data URLs are kept, so a saved copy can never inject markup or load another site. */
+export const isImageDataUrl = (v: unknown): v is string => typeof v === 'string' && /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(v);
+
 const isObject = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
 
 function validTimezone(tz: unknown): tz is string {
@@ -28,5 +31,6 @@ export function normalizePayload(raw: unknown): GuestPayload | null {
     householdNames: Array.isArray(raw.householdNames) ? raw.householdNames.filter((n): n is string => typeof n === 'string') : [],
     events,
     content: pickContent(raw.content),
+    ...(isImageDataUrl(raw.cover) ? { cover: raw.cover } : {}),
   };
 }

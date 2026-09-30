@@ -9,6 +9,10 @@
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="icon" href="/icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/icon.svg" />
+    <script>
+      // Apply a chosen Light/Dark appearance before the first paint (Auto needs nothing: CSS follows the phone).
+      try { var t = localStorage.getItem('wedding.theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

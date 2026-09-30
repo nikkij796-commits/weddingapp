@@ -51,6 +51,8 @@ export interface MealItem {
 
 export interface Content {
   coupleNames: string;
+  /** Name of an encrypted image in the vault (img/<name>.json) shown at the top of the guide, e.g. the invitation cover. */
+  coverImage?: string;
   tagline: string;
   timezone: string;
   welcome: string;
@@ -88,4 +90,6 @@ export interface GuestPayload {
   householdNames: string[];
   events: EventInfo[];
   content: Content;
+  /** The decrypted cover image (data: URL), fetched at unlock when content.coverImage is set. */
+  cover?: string;
 }

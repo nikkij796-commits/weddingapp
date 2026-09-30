@@ -4,6 +4,7 @@
  *   data/raw/guests.csv    Guest sheet exported from Drive (Name, Aliases, Household, one Yes/No column per event)
  *   data/raw/events.json   Events from the invitation
  *   data/raw/content.json  Welcome text, travel, lodging, FAQ, updates
+ *   data/raw/cover.jpg     Optional: shown at the top of the guide (encrypted; only unlocked guests can see it)
  *   WEDDING_CODE           The code printed on the invitation (env var)
  *
  * It then encrypts everything guests may see into public/vault, which is safe to commit and deploy.
@@ -33,9 +34,14 @@ try {
     aliases: existsSync(raw('aliases.json')) ? JSON.parse(readFileSync(raw('aliases.json'), 'utf8')) : {},
     onWarn: (m) => console.warn(`WARNING: ${m}`),
   });
+  const images: Record<string, string> = {};
+  if (existsSync(raw('cover.jpg'))) {
+    images.cover = `data:image/jpeg;base64,${readFileSync(raw('cover.jpg')).toString('base64')}`;
+    data.content.coverImage = 'cover';
+  }
   writeFileSync('data/published.json', JSON.stringify(data, null, 2));
   console.log(`Published ${data.events.length} events and ${data.guests.length} guests -> data/published.json`);
-  const n = await writeVault(data, data.code, 'public/vault');
+  const n = await writeVault(data, data.code, 'public/vault', undefined, images);
   console.log(`Encrypted vault: ${n} files -> public/vault (commit this folder; it is ciphertext only)`);
 } catch (e) {
   console.error(e instanceof PublishError ? e.message : e);

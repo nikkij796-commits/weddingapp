@@ -187,3 +187,20 @@ describe('guide features: moments and Today', () => {
     expect(h).toContain('Wedding weekend guide');
   });
 });
+
+describe('cover image at the top', () => {
+  const p = payloadFor('Alex Rivera');
+  it('replaces the drawn header when present, keeps a heading for screen readers', () => {
+    const h = renderWeekend({ ...p, cover: 'data:image/jpeg;base64,AAAA' }, before);
+    expect(h).toContain('<img class="cover" src="data:image/jpeg;base64,AAAA"');
+    expect(h).toContain('class="sr-only"');
+    expect(h).not.toContain('class="monogram"');
+    expect(h).not.toContain('class="scene"');
+    expect(h).toContain('Welcome, Alex');
+  });
+  it('without one, the drawn header stays', () => {
+    const h = renderWeekend(p, before);
+    expect(h).toContain('class="monogram"');
+    expect(h).not.toContain('class="cover"');
+  });
+});

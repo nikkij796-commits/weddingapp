@@ -214,3 +214,26 @@ describe('helpers', () => {
     expect(failureDelayMs(50)).toBe(8000);
   });
 });
+
+describe('encrypted images (the invitation cover)', () => {
+  const COVER = `data:image/jpeg;base64,${Buffer.from('fake-jpeg-bytes').toString('base64')}`;
+  const withCover = async () => buildVault({ ...data, content: { ...data.content, coverImage: 'cover' } }, CODE, { iterations: 1000, images: { cover: COVER } });
+  it('is sealed, and comes back with the guest\'s guide after unlocking', async () => {
+    const f = await withCover();
+    expect(f['img/cover.json']).toBeDefined();
+    expect(f['img/cover.json']).not.toContain(COVER.split(',')[1]);
+    const r = await go('Alex Rivera', CODE, f);
+    expect(r.kind === 'ok' && r.payload.cover).toBe(COVER);
+  });
+  it('a wrong code gets nothing, and a missing image never blocks unlocking', async () => {
+    const f = await withCover();
+    expect((await go('Alex Rivera', 'WRONG', f)).kind).toBe('fail');
+    delete f['img/cover.json'];
+    const r = await go('Alex Rivera', CODE, f);
+    expect(r.kind).toBe('ok');
+    expect(r.kind === 'ok' && r.payload.cover).toBeUndefined();
+  });
+  it('rejects unsafe image names', async () => {
+    await expect(buildVault(data, CODE, { iterations: 1000, images: { '../x': COVER } })).rejects.toThrow('Bad image name');
+  });
+});

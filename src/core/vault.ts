@@ -129,7 +129,7 @@ interface Entry {
 export async function buildVault(
   data: PublishedData,
   code: string,
-  opts: { iterations?: number } = {},
+  opts: { iterations?: number; images?: Record<string, string> } = {},
 ): Promise<VaultFiles> {
   const iterations = opts.iterations ?? DEFAULT_ITERATIONS;
   const salt = rand(16);
@@ -137,6 +137,11 @@ export async function buildVault(
   const files: VaultFiles = {};
   files['manifest.json'] = JSON.stringify({ v: VAULT_VERSION, salt: b64(salt), iter: iterations });
   files['content.json'] = JSON.stringify({ d: await seal(await contentKeyOf(root), JSON.stringify(data.content)) });
+  // Images (e.g. the invitation cover) are sealed with the same key as the content: readable only after unlocking.
+  for (const [name, dataUrl] of Object.entries(opts.images ?? {})) {
+    if (!/^[a-z0-9-]{1,40}$/.test(name)) throw new Error(`Bad image name "${name}"`);
+    files[`img/${name}.json`] = JSON.stringify({ d: await seal(await contentKeyOf(root), dataUrl) });
+  }
 
   const households = new Map<string, Guest[]>();
   for (const g of data.guests) households.set(g.householdId, [...(households.get(g.householdId) ?? []), g]);
@@ -243,7 +248,14 @@ export async function unlockVault(fetcher: Fetcher, name: string, code: string):
     const household = parse<{ names: string[]; events: EventInfo[] }>(await open(await aes(unb64(entry.k)), hh.d));
     const content = parse<Content>(await open(await contentKeyOf(root), cc.d));
     if (!household || !content) return FAIL;
-    return { kind: 'ok', payload: { guestName: entry.g, householdNames: household.names, events: household.events, content } };
+    const payload: GuestPayload = { guestName: entry.g, householdNames: household.names, events: household.events, content };
+    if (content.coverImage) {
+      // A missing or unreadable image never blocks unlocking; the guide just shows its drawn header.
+      const img = parse<{ d: string }>(await fetcher(`img/${content.coverImage}.json`).catch(() => null));
+      const url = img ? await open(await contentKeyOf(root), img.d) : null;
+      if (url && /^data:image\/(jpeg|png|webp);base64,/.test(url)) payload.cover = url;
+    }
+    return { kind: 'ok', payload };
   };
 
   if (parties.size === 0) return FAIL;
