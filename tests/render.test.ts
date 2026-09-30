@@ -34,15 +34,27 @@ describe('personalized weekend', () => {
     expect(h).toContain('Welcome, Jordan');
     expect(h).toContain('Your party: Alex Rivera');
   });
-  it('includes time, venue, dress code, maps and calendar per event', () => {
+  it('includes time, venue, dress code, one directions button, Uber and one calendar button per event', () => {
     const h = renderWeekend(payloadFor('Sam Chen'), before);
     expect(h).toContain('4:00 PM');
     expect(h).toContain('Rosewood Chapel');
     expect(h).toContain('Black Tie Optional');
-    expect(h).toContain('google.com/maps');
-    expect(h).toContain('maps.apple.com');
-    expect(h).toContain('calendar.google.com');
-    expect(h).toContain('data-ics="ceremony"');
+    expect(h).toContain('>Directions<');
+    expect(h.match(/google\.com\/maps|maps\.apple\.com/g)).toHaveLength(1); // one maps link, not two
+    expect(h).toContain('m.uber.com');
+    expect(h).toContain('data-cal="ceremony"');
+    expect(h).not.toContain('data-ics');
+  });
+  it('an event at the main resort drops the repeated street address and Directions, and offers the resort map', () => {
+    const h = renderWeekend(payloadFor('Alex Rivera'), before);
+    const welcome = h.slice(h.indexOf('data-event="welcome"'), h.indexOf('data-event="ceremony"'));
+    expect(welcome).toContain('Main Lawn (L)');
+    expect(welcome).toContain('The Garden Terrace');
+    expect(welcome).not.toContain('100 Example Street');
+    expect(welcome).not.toContain('Directions');
+    expect(welcome).toContain('data-mapfocus="L"');
+    const brunch = h.slice(h.indexOf('data-event="brunch"'));
+    expect(brunch).not.toContain('data-mapfocus'); // no lawn chosen yet
   });
   it('groups by day headings', () => expect(renderWeekend(payloadFor('Alex Rivera'), before)).toContain('Saturday, June 12'));
   it('marks live and past events', () => {
@@ -108,15 +120,14 @@ describe('time to be announced / no attire', () => {
   const brunch = h.slice(h.indexOf('data-event="brunch"'));
   it('shows "Time to be announced" for the brunch', () => expect(brunch).toContain('Time to be announced'));
   it('omits attire when there is no dress code', () => expect(brunch.slice(0, brunch.indexOf('</article>'))).not.toContain('Attire'));
-  it('keeps map links but drops calendar buttons for TBD events', () => {
+  it('drops the calendar button for TBD events', () => {
     const card = brunch.slice(0, brunch.indexOf('</article>'));
-    expect(card).toContain('google.com/maps');
-    expect(card).not.toMatch(/calendar\.google|data-ics/);
+    expect(card).not.toContain('data-cal');
   });
   it('still shows attire and calendar for timed events', () => {
     const cer = h.slice(h.indexOf('data-event="ceremony"'), h.indexOf('data-event="reception"'));
     expect(cer).toContain('Attire');
-    expect(cer).toContain('data-ics="ceremony"');
+    expect(cer).toContain('data-cal="ceremony"');
   });
   it('never counts down to a TBD event', () => {
     const onlyTbd = { ...p, events: p.events.filter((e) => e.id === 'brunch') };

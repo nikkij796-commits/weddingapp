@@ -92,22 +92,31 @@ test.describe('personalized experience', () => {
     await expect(page.getByText('Your party: Alex Rivera')).toBeVisible();
   });
 
-  test('event card has attire, maps and calendar actions', async ({ page }) => {
+  test('an off-site event card has attire, one Directions button, Uber and Add to calendar', async ({ page }) => {
     await unlock(page, 'Sam Chen');
     const card = page.locator('[data-event=ceremony]');
     await expect(card).toContainText('Black Tie Optional');
-    await expect(card.getByRole('link', { name: 'Google Maps' })).toHaveAttribute('href', /google\.com\/maps.*Rosewood/);
-    await expect(card.getByRole('link', { name: 'Apple Maps' })).toHaveAttribute('href', /maps\.apple\.com/);
-    await expect(card.getByRole('link', { name: 'Add to Google Calendar' })).toHaveAttribute('href', /calendar\.google\.com/);
+    await expect(card.getByRole('link', { name: 'Directions' })).toHaveAttribute('href', /google\.com\/maps.*Rosewood/);
+    await expect(card.getByRole('link', { name: 'Uber' })).toHaveAttribute('href', /m\.uber\.com/);
+    await expect(card.getByRole('button', { name: 'Add to calendar' })).toBeVisible();
+    await expect(card.getByRole('link', { name: /Apple Maps|Google Maps/ })).toHaveCount(0);
   });
 
-  test('.ics download works', async ({ page }) => {
+  test('Add to calendar opens Google Calendar for this event (Android, Windows)', async ({ page }) => {
+    await page.context().route(/calendar\.google\.com/, (r) => r.fulfill({ body: 'ok' }));
     await unlock(page, 'Sam Chen');
-    const [dl] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Download .ics' }).click()]);
-    expect(dl.suggestedFilename()).toBe('ceremony.ics');
+    const [popup] = await Promise.all([page.waitForEvent('popup'), page.locator('[data-event=ceremony]').getByRole('button', { name: 'Add to calendar' }).click()]);
+    expect(popup.url()).toMatch(/calendar\.google\.com.*text=Ceremony/);
+  });
+
+  test('the whole weekend downloads as one calendar file', async ({ page }) => {
+    await unlock(page, 'Alex Rivera');
+    const btn = page.getByRole('button', { name: 'Add all 3 events to my calendar' });
+    const [dl] = await Promise.all([page.waitForEvent('download'), btn.click()]);
+    expect(dl.suggestedFilename()).toBe('wedding-weekend.ics');
     const fs = await import('node:fs');
     const text = fs.readFileSync((await dl.path())!, 'utf8');
-    expect(text).toContain('BEGIN:VEVENT');
+    expect(text.match(/BEGIN:VEVENT/g)).toHaveLength(3); // brunch has no time yet
     expect(text).toContain('SUMMARY:Ceremony');
   });
 
@@ -127,8 +136,7 @@ test.describe('personalized experience', () => {
     const brunch = page.locator('[data-event=brunch]');
     await expect(brunch).toContainText('Time to be announced');
     await expect(brunch).not.toContainText('Attire');
-    await expect(brunch.getByRole('link', { name: 'Add to Google Calendar' })).toHaveCount(0);
-    await expect(brunch.getByRole('link', { name: 'Google Maps' })).toBeVisible();
+    await expect(brunch.getByRole('button', { name: 'Add to calendar' })).toHaveCount(0);
   });
 
   test('session persists across reload and sign out clears it', async ({ page }) => {
@@ -188,13 +196,25 @@ test.describe('guide behavior', () => {
     await expect(card.locator('.moments li')).toHaveText(['3:45 PM Seating', '4:00 PM Ceremony']);
   });
 
-  test('on the weekend, the app opens at today and marks it', async ({ page }) => {
-    await page.clock.install({ time: new Date('2027-06-12T12:00:00-04:00') });
+  test('on the weekend, the top shows what is happening now, up next and the next meal', async ({ page }) => {
+    await page.clock.install({ time: new Date('2027-06-12T16:10:00-04:00') });
     await unlock(page, 'Alex Rivera');
+    const nn = page.locator('.nownext');
+    await expect(nn).toBeInViewport();
+    await expect(nn.locator('.nn-row.live')).toContainText('Ceremony');
+    await expect(nn).toContainText('Up next · Today, 5:00 PM');
+    await expect(nn).toContainText('Cocktail hour');
+    await expect(page.locator('.cd')).toHaveCount(0);
     await expect(page.locator('.today')).toHaveText('Today');
-    await expect(page.locator('[data-today] h2')).toContainText('Saturday, June 12');
-    await expect(page.locator('[data-today] h2')).toBeInViewport();
-    await expect(page.getByRole('heading', { name: /Friday, June 11/ })).not.toBeInViewport();
+    await nn.locator('.nn-row', { hasText: 'Up next' }).click();
+    await expect(page.locator('#ev-reception h3')).toBeInViewport();
+  });
+
+  test('the next-meal row opens the Meals page', async ({ page }) => {
+    await page.clock.install({ time: new Date('2027-06-12T16:10:00-04:00') });
+    await unlock(page, 'Alex Rivera');
+    await page.locator('.nn-row.meal-row').click();
+    await expect(page.locator('.page-head h2')).toHaveText('Meals');
   });
 
   test('before the weekend there is no Today marker and the page starts at the top', async ({ page }) => {
@@ -262,4 +282,17 @@ test.describe('quality', () => {
     expect(small).toBe(0);
   });
 
+});
+
+test.describe('on an iPhone or Mac', () => {
+  test.use({ userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1' });
+  test('Directions opens Apple Maps and Add to calendar downloads a calendar file', async ({ page }) => {
+    await unlock(page, 'Sam Chen');
+    const card = page.locator('[data-event=ceremony]');
+    await expect(card.getByRole('link', { name: 'Directions' })).toHaveAttribute('href', /maps\.apple\.com/);
+    const [dl] = await Promise.all([page.waitForEvent('download'), card.getByRole('button', { name: 'Add to calendar' }).click()]);
+    expect(dl.suggestedFilename()).toBe('ceremony.ics');
+    const fs = await import('node:fs');
+    expect(fs.readFileSync((await dl.path())!, 'utf8')).toContain('SUMMARY:Ceremony');
+  });
 });

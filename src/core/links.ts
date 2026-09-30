@@ -94,3 +94,12 @@ export function googleCalendarUrl(e: EventInfo): string {
   });
   return `https://calendar.google.com/calendar/render?${p.toString()}`;
 }
+
+/** iPhone, iPad and Mac users get Apple Maps and a calendar file; everyone else gets Google. */
+export function isAppleDevice(ua = typeof navigator === 'undefined' ? '' : navigator.userAgent): boolean {
+  return /iPhone|iPad|iPod|Macintosh/.test(ua);
+}
+
+export function directionsUrl(e: Pick<EventInfo, 'venue' | 'address'>, apple = isAppleDevice()): string {
+  return apple ? appleMapsUrl(e) : googleMapsUrl(e);
+}

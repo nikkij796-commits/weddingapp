@@ -63,7 +63,13 @@ export interface Content {
   meals: { intro: string; items: MealItem[] };
   rides: { intro: string; steps: string[]; voucher: { code: string; note: string }; tips: string[] };
   /** Hotel / resort map: an embedded map of the first place, an optional property map image, and a list of places. */
-  map: { intro: string; imagePath?: string; imageAlt?: string; places: { name: string; address: string; note?: string }[] };
+  map: {
+    intro: string;
+    imagePath?: string;
+    imageAlt?: string;
+    /** Where each lettered spot sits on the map image, in percent of its width/height. Events whose area says "(D)" get a pin there. */
+    spots?: { letter: string; x: number; y: number }[];
+    places: { name: string; address: string; note?: string }[] };
   /** Where to get the live weather from. Null hides the forecast and shows "coming soon". */
   weather: { place: string; latitude: number; longitude: number } | null;
 }

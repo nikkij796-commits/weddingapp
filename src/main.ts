@@ -5,7 +5,7 @@ import '@fontsource/cormorant-garamond/latin-600.css';
 import '@fontsource/jost/latin-400.css';
 import '@fontsource/jost/latin-500.css';
 import './style.css';
-import { buildIcs } from './core/links';
+import { buildIcs, googleCalendarUrl, isAppleDevice } from './core/links';
 import type { GuestPayload } from './core/types';
 import { normalizePayload } from './core/payload';
 import { SESSION_VERSION, clearSession, loadSession, refreshSession, saveSession, type Session, type Store } from './core/session';
@@ -130,8 +130,8 @@ function showApp() {
     return showProblem();
   }
   if (tab === 'weekend' && !jumpedToToday) {
-    jumpedToToday = true; // on the weekend itself, open at today's schedule
-    root.querySelector('[data-today]')?.scrollIntoView({ block: 'start' });
+    jumpedToToday = true; // on the weekend itself, open at today's schedule (unless the now/next card is up top)
+    if (!root.querySelector('.nownext')) root.querySelector('[data-today]')?.scrollIntoView({ block: 'start' });
   }
   root.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach((b) =>
     b.addEventListener('click', () => {
@@ -139,18 +139,6 @@ function showApp() {
       if (!ALL_TABS.includes(tab)) tab = 'weekend';
       showApp();
       window.scrollTo({ top: 0 });
-    }),
-  );
-  root.querySelectorAll<HTMLButtonElement>('[data-ics]').forEach((b) =>
-    b.addEventListener('click', () => {
-      const e = p.events.find((x) => x.id === b.dataset.ics);
-      if (!e) return;
-      const blob = new Blob([buildIcs([e], e.name)], { type: 'text/calendar' });
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = `${e.id}.ics`;
-      a.click();
-      URL.revokeObjectURL(a.href);
     }),
   );
   if (tab === 'weather') void refreshWeather();
@@ -239,11 +227,84 @@ async function refreshWeather(force = false) {
   paintWeather(p);
 }
 
-// One delegated listener for actions inside pages that re-render (jump links, copy code, weather retry).
+/** One event: Apple devices get a calendar file (opens Calendar), others Google Calendar. The whole weekend is always a file. */
+function addToCalendar(id: string) {
+  const p = payload;
+  if (!p) return;
+  const events = id === 'all' ? p.events.filter((e) => !e.timeTbd) : p.events.filter((e) => e.id === id);
+  if (!events.length) return;
+  if (id !== 'all' && !isAppleDevice()) {
+    window.open(googleCalendarUrl(events[0]), '_blank', 'noopener');
+    return;
+  }
+  const name = id === 'all' ? `${p.content.coupleNames} wedding weekend` : events[0].name;
+  const blob = new Blob([buildIcs(events, name)], { type: 'text/calendar' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = id === 'all' ? 'wedding-weekend.ics' : `${events[0].id}.ics`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+// ---------- interactive resort map ----------
+
+function setMapZoom(zoomed: boolean) {
+  const scroller = document.querySelector<HTMLElement>('#resort-map .map-scroll');
+  if (!scroller) return;
+  scroller.dataset.zoomed = String(zoomed);
+  const btn = document.querySelector<HTMLElement>('#resort-map [data-mapzoom]');
+  if (btn) btn.textContent = zoomed ? 'Zoom out' : 'Zoom in';
+}
+
+/** Highlights the pins for these letters, shows what is there, and zooms/scrolls so they are in view. */
+function focusPins(letters: string[], scrollPage: boolean) {
+  const fig = document.getElementById('resort-map');
+  if (!fig) return;
+  const img = fig.querySelector('img');
+  if (img && !img.complete) {
+    img.addEventListener('load', () => focusPins(letters, scrollPage), { once: true }); // positions depend on the image size
+    return;
+  }
+  fig.querySelectorAll<HTMLElement>('.pin').forEach((pin) => pin.classList.toggle('active', letters.includes(pin.dataset.pin!)));
+  fig.querySelectorAll<HTMLElement>('.pin-info').forEach((info) => (info.hidden = !letters.includes(info.dataset.info!)));
+  fig.querySelector<HTMLElement>('.pin-hint')?.toggleAttribute('hidden', letters.length > 0);
+  // Zoom without the animation so pin positions can be measured at their final size.
+  const canvas = fig.querySelector<HTMLElement>('.map-canvas')!;
+  canvas.style.transition = 'none';
+  setMapZoom(true);
+  void canvas.offsetWidth; // apply the new width now
+  canvas.style.transition = '';
+  const scroller = fig.querySelector<HTMLElement>('.map-scroll')!;
+  const pins = letters.map((l) => fig.querySelector<HTMLElement>(`.pin[data-pin="${l}"]`)).filter((x): x is HTMLElement => !!x);
+  requestAnimationFrame(() => {
+    if (pins.length) {
+      const x = pins.reduce((sum, pin) => sum + pin.offsetLeft, 0) / pins.length;
+      const y = pins.reduce((sum, pin) => sum + pin.offsetTop, 0) / pins.length;
+      scroller.scrollTo({ left: x - scroller.clientWidth / 2, top: y - scroller.clientHeight / 2, behavior: 'smooth' });
+    }
+    if (scrollPage) fig.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  });
+}
+
+// One delegated listener for actions inside pages that re-render (jump links, copy code, weather retry, map, calendar).
 root.addEventListener('click', async (ev) => {
-  const el = (ev.target as HTMLElement).closest<HTMLElement>('[data-jump],[data-copy],[data-retry]');
+  const el = (ev.target as HTMLElement).closest<HTMLElement>('[data-jump],[data-copy],[data-retry],[data-cal],[data-pin],[data-mapzoom],[data-mapfocus]');
   if (!el) return;
-  if (el.dataset.jump) {
+  if (el.dataset.cal) {
+    addToCalendar(el.dataset.cal);
+  } else if (el.dataset.pin) {
+    focusPins([el.dataset.pin], false);
+  } else if (el.hasAttribute('data-mapzoom')) {
+    setMapZoom(document.querySelector<HTMLElement>('#resort-map .map-scroll')?.dataset.zoomed !== 'true');
+  } else if (el.dataset.mapfocus) {
+    const letters = el.dataset.mapfocus.split(' ');
+    if (tab !== 'map') {
+      tab = 'map';
+      showApp();
+      window.scrollTo({ top: 0 });
+    }
+    focusPins(letters, true);
+  } else if (el.dataset.jump) {
     document.getElementById(el.dataset.jump)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   } else if (el.dataset.copy !== undefined) {
     const text = el.dataset.copy;

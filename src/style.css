@@ -125,7 +125,7 @@ section { padding-top: 2rem; }
 .badge.past { color: var(--muted); border-color: var(--line); }
 .actions { display: flex; flex-wrap: wrap; justify-content: center; gap: .5rem; margin-top: .9rem; }
 .chip { display: inline-flex; align-items: center; justify-content: center; text-align: center; font: inherit; font-size: .84rem; font-weight: 500; padding: .55rem .85rem; border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent); background: var(--chip-bg); color: var(--accent); text-decoration: none; cursor: pointer; border-radius: 999px; min-height: 44px; }
-.chip:hover, .chip:focus-visible { background: var(--accent); color: var(--panel); }
+.chip:focus-visible { background: var(--accent); color: var(--panel); }
 
 .card { background: #fffaf1; border: 1px solid var(--line); padding: 1.25rem; margin-bottom: .9rem; border-radius: var(--radius); box-shadow: var(--shadow); }
 .card h3 { font-family: var(--title); font-weight: 600; font-size: 1.7rem; line-height: 1.12; color: var(--maroon); }
@@ -194,7 +194,7 @@ section[id] { scroll-margin-top: 1rem; }
 /* ---------- Rides ---------- */
 .jump { display: flex; justify-content: center; flex-wrap: wrap; gap: .5rem; margin: 1.2rem 0 0; }
 .jump button { font: inherit; font-size: .78rem; letter-spacing: .06em; padding: .5rem .9rem; min-height: 40px; border: 1px solid #d9b98a; background: #fffaf1; color: var(--maroon); border-radius: 999px; cursor: pointer; }
-.jump button:hover { background: var(--maroon); color: var(--cream); }
+
 .voucher { text-align: center; }
 .voucher .code { font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; font-size: 1.9rem; letter-spacing: .12em; color: var(--maroon); margin: .2rem 0 .8rem; word-break: break-all; }
 .ride h3 { font-size: 1.6rem; }
@@ -263,8 +263,8 @@ section[id] { scroll-margin-top: 1rem; }
 .daystrip button { display: grid; justify-items: center; flex: 1; max-width: 88px; min-height: 52px; padding: .3rem .4rem; font: inherit; color: var(--maroon); background: #fffaf1; border: 1px solid #e3cba4; border-radius: 12px; cursor: pointer; line-height: 1.1; }
 .daystrip span { font-size: .68rem; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
 .daystrip b { font-family: var(--title); font-weight: 600; font-size: 1.45rem; }
-.daystrip button:hover, .daystrip button:focus-visible { background: var(--maroon); color: var(--cream); border-color: var(--maroon); }
-.daystrip button:hover span, .daystrip button:focus-visible span { color: var(--sand); }
+.daystrip button:focus-visible { background: var(--maroon); color: var(--cream); border-color: var(--maroon); }
+.daystrip button:focus-visible span { color: var(--sand); }
 .day, section[id] { scroll-margin-top: 4.6rem; }
 .day { padding-top: 1.6rem; }
 
@@ -308,10 +308,68 @@ section[id] { scroll-margin-top: 1rem; }
 /* chips outside event cards (places, rides, retry) use the maroon theme */
 :root { --accent: var(--maroon); --panel: #fdf3e3; --chip-bg: #fffaf1; }
 .chip { border-color: color-mix(in srgb, var(--accent) 40%, transparent); }
-.actions:has(> :nth-child(3):last-child) { grid-template-columns: repeat(3, 1fr); }
-.actions:has(> :nth-child(3):last-child) .chip { padding-left: .4rem; padding-right: .4rem; }
+.actions > :nth-child(3):last-child { grid-column: 1 / -1; }
 .map-figure figcaption { display: grid; justify-items: center; gap: .6rem; margin-top: .9rem; font-size: .88rem; }
 .map-scroll { border-radius: var(--radius); box-shadow: var(--shadow); }
 .wx-error .actions { justify-content: center; }
 .wx-error .actions { grid-template-columns: 1fr; }
 .day > h2, section > h2 { font-size: clamp(1.95rem, 9.4vw, 2.4rem); line-height: 1.1; }
+
+/* ---------- Now / Next (during the weekend) ---------- */
+.nownext { display: grid; gap: .6rem; margin: 1.4rem auto .2rem; max-width: 30rem; text-align: left; }
+.nn-row { display: grid; gap: .1rem; width: 100%; padding: .85rem 1rem .9rem; font: inherit; text-align: left; color: var(--ink); background: rgba(255, 250, 241, .88); border: 1px solid #ecd2ad; border-radius: var(--radius); box-shadow: var(--shadow); cursor: pointer; position: relative; }
+.nn-row::after { content: '\203A'; position: absolute; right: 1rem; top: 50%; transform: translateY(-50%); font-size: 1.6rem; color: var(--maroon); opacity: .6; }
+.nn-row b { font-family: var(--title); font-weight: 600; font-size: 1.45rem; line-height: 1.15; color: var(--maroon); padding-right: 1.4rem; display: flex; flex-wrap: wrap; align-items: center; gap: .1rem .5rem; }
+.nn-row b .pill { margin: 0; }
+.nn-tag { display: inline-flex; align-items: center; gap: .45rem; font-size: .74rem; font-weight: 500; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.nn-meta { font-size: .92rem; color: var(--muted); padding-right: 1.4rem; }
+.nn-row.live { background: var(--maroon); border-color: var(--maroon); }
+.nn-row.live b, .nn-row.live .nn-tag, .nn-row.live .nn-meta, .nn-row.live::after { color: #fdf3e3; }
+.nn-row.live .pulse { background: #fdf3e3; }
+
+.cal-all { display: inline-flex; align-items: center; gap: .5rem; margin: 1.2rem auto 0; padding: .7rem 1.1rem; min-height: 46px; font: inherit; font-size: .88rem; font-weight: 500; color: var(--maroon); background: rgba(255, 250, 241, .75); border: 1px solid color-mix(in srgb, var(--maroon) 35%, transparent); border-radius: 999px; cursor: pointer; }
+.cal-all:focus-visible { background: var(--maroon); color: var(--cream); }
+
+/* event card: location lines */
+.venue .addr { font-size: .88rem; color: color-mix(in srgb, var(--ink-on) 72%, transparent); }
+.venue .tba { font-size: .88rem; }
+.kicker { font-size: .74rem; font-weight: 500; letter-spacing: .14em; text-transform: uppercase; color: var(--maroon); margin: 0 0 .2rem; }
+
+/* ---------- Interactive resort map ---------- */
+.map-scroll { overflow-x: auto; overflow-y: hidden; scroll-behavior: smooth; -webkit-overflow-scrolling: touch; border: 0; padding: 6px; background: #fff; }
+.map-canvas { position: relative; width: 100%; transition: width .35s ease; }
+.map-scroll[data-zoomed='true'] .map-canvas { width: 1000px; }
+.map-canvas img, .map-scroll img { display: block; width: 100%; height: auto; min-width: 0; user-select: none; -webkit-user-drag: none; }
+.pin { position: absolute; transform: translate(-50%, -100%); width: 34px; height: 42px; padding: 0; border: 0; background: none; cursor: pointer; filter: drop-shadow(0 3px 4px rgba(60, 20, 10, .35)); }
+.pin::before { content: ''; position: absolute; inset: 0 0 8px; background: var(--maroon); border-radius: 50% 50% 50% 0; transform: rotate(-45deg); transform-origin: 50% 50%; width: 34px; height: 34px; border: 2px solid #fff; box-sizing: border-box; }
+.pin span { position: relative; display: block; line-height: 34px; font-family: var(--title); font-weight: 600; font-size: 1.15rem; color: #fff; text-align: center; }
+.pin.active::after { content: ''; position: absolute; left: 50%; top: 17px; width: 34px; height: 34px; margin: -17px 0 0 -17px; border-radius: 50%; border: 3px solid var(--maroon); animation: ring 1.4s ease-out infinite; }
+.pin.active::before { background: var(--marigold); }
+.pin.active span { color: #3b2418; }
+@keyframes ring { from { transform: scale(.9); opacity: .9; } to { transform: scale(2.3); opacity: 0; } }
+.map-tools { display: flex; justify-content: center; gap: .5rem; margin-top: .8rem; }
+.map-tools .chip { min-width: 8.5rem; }
+.map-info { margin-top: .8rem; }
+.pin-hint { text-align: center; font-size: .9rem; margin: 0; }
+.pin-info { background: #fffaf1; border: 1px solid var(--line); border-left: 4px solid var(--marigold); border-radius: var(--radius); box-shadow: var(--shadow); padding: .8rem 1rem; margin-top: .5rem; text-align: left; }
+.pin-title { display: flex; align-items: center; gap: .6rem; margin: 0 0 .3rem; font-family: var(--title); font-weight: 600; font-size: 1.35rem; color: var(--maroon); }
+.pin-dot { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: var(--maroon); color: #fff; font-size: 1rem; flex: none; }
+.pin-info ul { list-style: none; margin: 0; padding: 0; display: grid; gap: .15rem; font-size: .95rem; }
+.pin-info li span { display: inline-block; min-width: 6.4rem; font-size: .78rem; font-weight: 500; letter-spacing: .06em; text-transform: uppercase; color: var(--maroon); }
+
+.where-list li { display: block; padding: 0; background: none; border: 0; box-shadow: none; }
+.where-btn { display: flex; gap: 1rem; align-items: center; width: 100%; padding: .9rem 1rem; font: inherit; text-align: left; color: var(--ink); background: #fffaf1; border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); }
+button.where-btn { cursor: pointer; }
+button.where-btn:hover, button.where-btn:focus-visible { border-color: var(--maroon); }
+.where-btn .where-what { flex: 1; }
+.where-go { color: var(--maroon); flex: none; }
+.where-hint { margin: -.4rem 0 .2rem; }
+@media (prefers-reduced-motion: reduce) { .pin.active::after { animation: none; } .map-canvas { transition: none; } }
+
+.map-scroll[data-zoomed='true'] { height: min(52vh, 440px); overflow: auto; }
+
+@media (hover: hover) { .chip:hover { background: var(--accent); color: var(--panel); } }
+@media (hover: hover) { .jump button:hover { background: var(--maroon); color: var(--cream); } }
+@media (hover: hover) { .daystrip button:hover { background: var(--maroon); color: var(--cream); border-color: var(--maroon); } }
+@media (hover: hover) { .daystrip button:hover span { color: var(--sand); } }
+@media (hover: hover) { .cal-all:hover { background: var(--maroon); color: var(--cream); } }

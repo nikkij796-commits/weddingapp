@@ -1,10 +1,11 @@
-import { appleMapsUrl, googleCalendarUrl, googleMapsUrl } from '../core/links';
+import { directionsUrl, uberRideUrl } from '../core/links';
+import { areaSpots, nowNext, relativeDay } from '../core/plan';
 import { firstName } from '../core/matching';
-import { ymdInTimezone } from '../core/weather';
+import { clock12, ymdInTimezone } from '../core/weather';
 import { countdown, currentOrNext, eventStatus, formatDay, formatTime, groupByDay } from '../core/time';
 import type { EventInfo, GuestPayload } from '../core/types';
 import { esc } from './html';
-import { ALL_TABS, dayStrip, MORE_ITEMS, NAV, isMoreChild, navFor, renderMap, renderMeals, renderMore, renderProgram, renderRides, renderWeather, type TabId, type WeatherState } from './pages';
+import { ALL_TABS, JAIN_LABEL, dayStrip, MORE_ITEMS, NAV, isMoreChild, navFor, renderMap, renderMeals, renderMore, renderProgram, renderRides, renderWeather, type TabId, type WeatherState } from './pages';
 export { esc };
 export type { TabId, WeatherState };
 
@@ -85,30 +86,69 @@ export function renderCountdown(p: GuestPayload, now: Date): string {
   </div><p class="cd-next">until ${esc(next.name)}</p>`;
 }
 
-export function renderEvent(e: EventInfo, tz: string, now: Date): string {
+/** Where an event is, in one short line: the lawn or hall at the resort, else the venue. */
+export const whereShort = (e: EventInfo) => e.area || e.venue;
+
+/** During the weekend: what is on right now, what is next, and the next meal. Each row jumps to the details. */
+export function renderNowNext(p: GuestPayload, now: Date): string {
+  const tz = p.content.timezone;
+  const nn = nowNext(p, now);
+  if (!nn.weekend) return '';
+  const when = (e: EventInfo) => `${relativeDay(ymdInTimezone(new Date(e.start), tz), now, tz)}, ${formatTime(e.start, tz)}`;
+  const rows: string[] = [];
+  for (const e of nn.live) {
+    rows.push(`<button type="button" class="nn-row live" data-jump="ev-${esc(e.id)}"><span class="nn-tag"><span class="pulse"></span>Happening now</span><b>${esc(e.name)}</b><span class="nn-meta">${esc(whereShort(e))} &middot; until ${esc(formatTime(e.end, tz))}</span></button>`);
+  }
+  if (nn.next) {
+    const e = nn.next;
+    rows.push(`<button type="button" class="nn-row" data-jump="ev-${esc(e.id)}"><span class="nn-tag">Up next &middot; ${esc(when(e))}</span><b>${esc(e.name)}</b><span class="nn-meta">${esc(whereShort(e))}${e.dressCode ? ` &middot; ${esc(e.dressCode)}` : ''}</span></button>`);
+  }
+  if (nn.meal) {
+    const { row, serving } = nn.meal;
+    const day = esc(relativeDay(row.day, now, tz));
+    const label = serving ? 'Being served now' : `Next meal &middot; ${day}${row.m.time ? ` &middot; ${esc(row.m.time)}` : `, ${esc(clock12(row.at))}`}`;
+    const place = row.m.place ?? (row.e ? whereShort(row.e) : '');
+    rows.push(`<button type="button" class="nn-row meal-row" data-tab="meals"><span class="nn-tag">${label}</span><b>${esc(row.m.label)}${row.m.jain ? ` <span class="pill ${row.m.jain}">${JAIN_LABEL[row.m.jain]}</span>` : ''}</b>${place ? `<span class="nn-meta">${esc(place)}</span>` : ''}</button>`);
+  }
+  if (!rows.length) return `<p class="cd-done">Thank you for celebrating with us.</p>`;
+  return `<section class="nownext" aria-label="Now and next">${rows.join('')}</section>`;
+}
+
+/** Info for rendering one event: is it at the main resort, and does it have pins on the resort map? */
+export function eventPlace(p: GuestPayload, e: EventInfo) {
+  const map = p.content.map as GuestPayload['content']['map'] | undefined; // tolerate an old saved copy
+  const home = map?.places?.[0]?.name.toLowerCase() ?? '';
+  const onSite = !!home && e.venue.toLowerCase() === home;
+  const letters = new Set(map?.spots?.map((s) => s.letter) ?? []);
+  const pins = onSite && map?.imagePath ? areaSpots(e.area).filter((s) => letters.has(s.letter)).map((s) => s.letter) : [];
+  return { onSite, pins };
+}
+
+export function renderEvent(e: EventInfo, tz: string, now: Date, p?: GuestPayload): string {
   const status = eventStatus(e, now);
   const badge =
     status === 'live' ? '<span class="badge live">Happening now</span>' : status === 'past' ? '<span class="badge past">Completed</span>' : '';
   const when = e.timeTbd ? 'Time to be announced' : `${formatTime(e.start, tz)} &ndash; ${formatTime(e.end, tz)}`;
-  const calendar = e.timeTbd
-    ? ''
-    : `<a class="chip" href="${esc(googleCalendarUrl(e))}" target="_blank" rel="noopener">Add to Google Calendar</a>
-      <button class="chip" data-ics="${esc(e.id)}" type="button">Download .ics</button>`;
+  const { onSite, pins } = p ? eventPlace(p, e) : { onSite: false, pins: [] as string[] };
+  // At the main resort the street address is the same for every event, so only off-site events show it.
+  const address = onSite ? '' : e.address ? `<span class="addr">${esc(e.address)}</span>` : '<span class="tba">Address to be announced</span>';
+  const buttons = [
+    pins.length ? `<button type="button" class="chip" data-mapfocus="${esc(pins.join(' '))}">Show on map</button>` : '',
+    !onSite && e.address ? `<a class="chip" href="${esc(directionsUrl(e))}" target="_blank" rel="noopener">Directions</a>` : '',
+    !onSite && e.address ? `<a class="chip" data-uber href="${esc(uberRideUrl({ name: e.venue, address: e.address }))}" target="_blank" rel="noopener">Uber</a>` : '',
+    e.timeTbd ? '' : `<button type="button" class="chip" data-cal="${esc(e.id)}">Add to calendar</button>`,
+  ].filter(Boolean);
   return `
-  <article class="event ${status}" data-event="${esc(e.id)}">
+  <article class="event ${status}" data-event="${esc(e.id)}" id="ev-${esc(e.id)}">
     <div class="frame"><div class="panel">
       <p class="time">${e.timeTbd ? esc(when) : when}</p>
       <h3>${esc(e.name)} ${badge}</h3>
       ${RULE}
       ${e.description ? `<p class="desc">${esc(e.description)}</p>` : ''}
       ${e.moments?.length ? `<ul class="moments">${e.moments.map((m) => `<li><b>${esc(m.time)}</b> ${esc(m.label)}</li>`).join('')}</ul>` : ''}
-      <p class="venue"><strong>${esc(e.venue)}</strong>${e.area ? `<br><span class="area">${esc(e.area)}</span>` : ''}<br>${e.address ? esc(e.address) : '<span class="tba">Address to be announced</span>'}</p>
+      <p class="venue">${e.area ? `<span class="area">${esc(e.area)}</span>` : ''}<strong>${esc(e.venue)}</strong>${address}</p>
       ${e.dressCode ? `<p class="dress"><span class="label">Attire</span><span class="attire">${esc(e.dressCode)}</span>${e.dressNotes ? `<br><span class="muted">${esc(e.dressNotes)}</span>` : ''}</p>` : ''}
-      <div class="actions">
-        ${e.address ? `<a class="chip" href="${esc(googleMapsUrl(e))}" target="_blank" rel="noopener">Google Maps</a>
-        <a class="chip" href="${esc(appleMapsUrl(e))}" target="_blank" rel="noopener">Apple Maps</a>` : ''}
-        ${calendar}
-      </div>
+      ${buttons.length ? `<div class="actions">${buttons.join('')}</div>` : ''}
     </div></div>
   </article>`;
 }
@@ -117,22 +157,30 @@ export function renderWeekend(p: GuestPayload, now: Date): string {
   const tz = p.content.timezone;
   const days = groupByDay(p.events, tz);
   const others = p.householdNames.filter((n) => n !== p.guestName);
+  const ymd = (d: (typeof days)[number]) => ymdInTimezone(new Date(d.events[0].start), tz);
+  const today = formatDay(now.toISOString(), tz);
+  const nn = renderNowNext(p, now);
+  const datable = p.events.filter((e) => !e.timeTbd).length;
   return `
   <section class="hero">
     <p class="eyebrow">Welcome, ${esc(firstName(p.guestName))}</p>
     <h1 class="monogram">${esc(p.content.coupleNames)}</h1>
     ${p.content.tagline ? `<p class="tagline">${esc(p.content.tagline)}</p>` : ''}
-    ${renderCountdown(p, now)}
-    <p class="welcome">${esc(p.content.welcome)}</p>
+    ${nn || renderCountdown(p, now)}
+    ${nn ? '' : `<p class="welcome">${esc(p.content.welcome)}</p>`}
     ${others.length ? `<p class="household">Your party: ${esc(others.join(', '))}</p>` : ''}
+    ${datable > 1 ? `<button type="button" class="cal-all" data-cal="all">${ICON_CAL} Add all ${datable} events to my calendar</button>` : ''}
     ${DESERT_SCENE}
   </section>
   ${
     days.length
-      ? dayStrip(days.map((d) => ymdInTimezone(new Date(d.events[0].start), tz)), 'day') + days.map((d) => `<section class="day" id="day-${ymdInTimezone(new Date(d.events[0].start), tz)}"${d.day === formatDay(now.toISOString(), tz) ? ' data-today' : ''}><h2>${esc(d.day)}${d.day === formatDay(now.toISOString(), tz) ? ' <span class="today">Today</span>' : ''}</h2>${d.events.map((e) => renderEvent(e, tz, now)).join('')}</section>`).join('')
+      ? dayStrip(days.map(ymd), 'day') +
+        days.map((d) => `<section class="day" id="day-${ymd(d)}"${d.day === today ? ' data-today' : ''}><h2>${esc(d.day)}${d.day === today ? ' <span class="today">Today</span>' : ''}</h2>${d.events.map((e) => renderEvent(e, tz, now, p)).join('')}</section>`).join('')
       : '<p class="empty">Your schedule will appear here soon.</p>'
   }`;
 }
+
+const ICON_CAL = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4M12 13v5M9.5 15.5h5"/></svg>';
 
 export function renderFaq(p: GuestPayload): string {
   const { faq, contact } = p.content;

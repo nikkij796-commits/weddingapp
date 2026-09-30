@@ -20,14 +20,16 @@ Mobile-first, installable (PWA) guest site. Guests enter their **name + wedding 
 3. Commit `public/vault/` and push (see Hosting).
 
 ## Pages and what feeds them
+Weekend: during the weekend (from 24 hours before the guest's first event) the top shows **Happening now / Up next / Next meal**; before that, a countdown. "Add all N events to my calendar" downloads one calendar file. Each event has one **Directions** button (Apple Maps on iPhone/Mac, Google Maps elsewhere) and one **Add to calendar** button (calendar file on iPhone/Mac, Google Calendar elsewhere).
+
 Bottom bar: **Weekend, Program, Meals, Rides, More**. More opens **Weather, Hotel map, FAQ, Updates**. Everything comes from `data/raw/content.json` (plus events) and is optional; an empty section shows a "Coming soon" placeholder.
 
 | Field in `content.json` | Page | Notes |
 | --- | --- | --- |
 | `program: { intro, sections: [{title, body}] }` | Program | Empty = placeholder. Blank lines in `body` make paragraphs. |
 | `meals: { intro, items: [{eventId or date, label, start?, end?, time?, place?, jain?, notes?}] }` | Meals | Names, times, places and dietary labels only (no menus). Use `eventId` to show a meal to everyone invited to that event, or `date` (`YYYY-MM-DD`) to show it to anyone with an event that day. `start`/`end` are local `HH:MM`; `time` is free text that replaces them (e.g. "During Haldi"). `place` overrides the event's place. `jain` is `full` ("Fully Jain") or `options` ("Jain options"). |
-| `rides: { intro, steps[], voucher: {code, note}, tips[] }` | Rides | Empty voucher = placeholder. Ride buttons open Uber with the destination filled in (every event venue and every map place). Dollar amounts are allowed here only. |
-| `map: { intro, imagePath?, imageAlt?, places: [{name, address, note?}] }` | Hotel map | Embeds a Google map of the first place. The property-map image lives in `public/` (currently `resort-map.jpg`); set `imagePath` to its filename. It scrolls sideways on phones and opens full size on tap. |
+| `rides: { intro, steps[], voucher: {code, note}, tips[] }` | Rides | Empty voucher = placeholder. Each place and off-site venue gets Uber (destination filled in) and Directions. Dollar amounts are allowed here only. |
+| `map: { intro, imagePath?, imageAlt?, spots?: [{letter, x, y}], places: [{name, address, note?}] }` | Hotel map, Rides | The property-map image lives in `public/` (currently `resort-map.jpg`). `spots` gives each map letter's position in percent of the image; any event at the first place whose `area` names a letter, e.g. `Cholla Lawn (D)`, gets a tappable pin, a "Show on map" button, and a row in "Where is my event?" that zooms to it. The first place is the main venue: events there don't repeat its street address. `places` also feed the Rides page (Uber + Directions). |
 | `weather: { place, latitude, longitude }` | Weather | Live from Open-Meteo. Within 15 days: the real forecast, with the temperature at each event's start. Earlier: "typical weather" averaged from the past 8 years, with the date the live forecast starts. Only the guest's own event days are shown. Needs internet; falls back to a saved copy. |
 
 ## Hosting: GitHub Pages

@@ -88,6 +88,10 @@ function pickMap(m: any): Content['map'] {
   };
   if (str(m?.imagePath)) out.imagePath = str(m.imagePath);
   if (str(m?.imageAlt)) out.imageAlt = str(m.imageAlt);
+  const spots = list(m?.spots)
+    .map((x: any) => ({ letter: str(x?.letter).toUpperCase(), x: Number(x?.x), y: Number(x?.y) }))
+    .filter((s) => /^[A-Z]$/.test(s.letter) && s.x >= 0 && s.x <= 100 && s.y >= 0 && s.y <= 100);
+  if (spots.length) out.spots = spots;
   return out;
 }
 

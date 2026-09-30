@@ -76,7 +76,7 @@ test.describe('Meals', () => {
     await expect(meal('Cocktail hour')).toContainText('Just before dinner');
     await expect(meal('Farewell brunch')).toContainText('Time to be announced');
     await expect(page.locator('body')).not.toContainText('Menu to be announced');
-    await expect(page.locator('.jain-legend')).toBeVisible();
+    await expect(page.locator('.jain-legend')).toHaveCount(0);
   });
   test('meals on a day are in time order', async ({ page }) => {
     await unlock(page, 'Alex Rivera');
@@ -133,16 +133,48 @@ test.describe('Rides', () => {
 });
 
 test.describe('Hotel map', () => {
-  test('embeds a map and lists places with map and Uber links', async ({ page }) => {
+  test('shows the resort map with the guest\'s own spots pinned, and no street map', async ({ page }) => {
     await unlock(page, 'Alex Rivera');
     await openTab(page, 'Hotel map');
-    const src = await page.locator('.map-frame iframe').getAttribute('src');
-    expect(src).toContain('https://maps.google.com/maps?q=');
-    expect(decodeURIComponent(src!)).toContain('The Garden Terrace');
-    await expect(page.locator('.place')).toHaveCount(2);
-    await expect(page.locator('.place').first().getByRole('link', { name: 'Google Maps' })).toHaveAttribute('href', /google\.com\/maps/);
-    await expect(page.locator('.place').first().getByRole('link', { name: 'Uber' })).toHaveAttribute('href', /m\.uber\.com/);
-    await expect(page.getByText('Property Map')).toBeVisible(); // sample data has no map image yet
+    await expect(page.locator('#resort-map img')).toBeVisible();
+    await expect(page.locator('.pin')).toHaveCount(1);
+    await expect(page.locator('.pin[data-pin=L]')).toBeVisible();
+    await expect(page.locator('iframe')).toHaveCount(0);
+  });
+  test('tapping a pin shows what is there', async ({ page }) => {
+    await unlock(page, 'Alex Rivera');
+    await openTab(page, 'Hotel map');
+    await expect(page.locator('.pin-info[data-info=L]')).toBeHidden();
+    await page.locator('.pin[data-pin=L]').click();
+    await expect(page.locator('.pin[data-pin=L]')).toHaveClass(/active/);
+    await expect(page.locator('.pin-info[data-info=L]')).toBeVisible();
+    await expect(page.locator('.pin-info[data-info=L]')).toContainText('Welcome Drinks');
+  });
+  test('zoom in and out', async ({ page }) => {
+    await unlock(page, 'Alex Rivera');
+    await openTab(page, 'Hotel map');
+    const scroller = page.locator('#resort-map .map-scroll');
+    const w0 = await page.locator('.map-canvas').evaluate((el) => el.getBoundingClientRect().width);
+    await page.getByRole('button', { name: 'Zoom in' }).click();
+    await expect(scroller).toHaveAttribute('data-zoomed', 'true');
+    await expect.poll(() => page.locator('.map-canvas').evaluate((el) => el.getBoundingClientRect().width)).toBeGreaterThan(Math.min(w0 + 1, 999));
+    await page.getByRole('button', { name: 'Zoom out' }).click();
+    await expect(scroller).toHaveAttribute('data-zoomed', 'false');
+  });
+  test('tapping an event in the list zooms to its pin and brings the map into view', async ({ page }) => {
+    await unlock(page, 'Alex Rivera');
+    await openTab(page, 'Hotel map');
+    await page.locator('[data-where=welcome] button').click();
+    await expect(page.locator('.pin[data-pin=L]')).toHaveClass(/active/);
+    await expect(page.locator('.pin[data-pin=L]')).toBeInViewport();
+    await expect(page.locator('.pin-info[data-info=L]')).toBeVisible();
+  });
+  test('"Show on map" on an event card opens the map at that spot', async ({ page }) => {
+    await unlock(page, 'Alex Rivera');
+    await page.locator('[data-event=welcome]').getByRole('button', { name: 'Show on map' }).click();
+    await expect(page.locator('.page-head h2')).toHaveText('Hotel Map');
+    await expect(page.locator('.pin[data-pin=L]')).toHaveClass(/active/);
+    await expect(page.locator('.pin[data-pin=L]')).toBeInViewport();
   });
 });
 
@@ -164,17 +196,16 @@ test.describe('Hotel map: where is my event?', () => {
     await expect(page.locator('#map-where li')).toHaveCount(1);
     await expect(page.locator('#map-where')).not.toContainText('Grand Ballroom');
   });
-  test('the property map comes first, then the event list, then the street map', async ({ page }) => {
+  test('the property map comes first, then the event list', async ({ page }) => {
     await unlock(page, 'Alex Rivera');
     await openTab(page, 'Hotel map');
     const y = (sel: string) => page.locator(sel).first().evaluate((el) => el.getBoundingClientRect().top + window.scrollY);
-    expect(await y('.soon')).toBeLessThan(await y('#map-where'));
-    expect(await y('#map-where')).toBeLessThan(await y('#map-getting'));
-    await expect(page.locator('#map-getting iframe')).toBeAttached();
+    expect(await y('#resort-map')).toBeLessThan(await y('#map-where'));
   });
-  test('the event card shows the lawn or hall too', async ({ page }) => {
+  test('the event card shows the lawn or hall too, without repeating the street address', async ({ page }) => {
     await unlock(page, 'Alex Rivera');
-    await expect(page.locator('[data-event=welcome] .area')).toHaveText('Main Lawn');
+    await expect(page.locator('[data-event=welcome] .area')).toHaveText('Main Lawn (L)');
+    await expect(page.locator('[data-event=welcome]')).not.toContainText('100 Example Street');
     await expect(page.locator('[data-event=ceremony] .area')).toHaveCount(0);
   });
 });

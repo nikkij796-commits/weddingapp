@@ -101,6 +101,20 @@
           "address": "12 Sample Road, Sampleville, NY 10001",
           "note": "Overflow hotel"
         }
+      ],
+      "imagePath": "resort-map.jpg",
+      "imageAlt": "Resort map",
+      "spots": [
+        {
+          "letter": "L",
+          "x": 44.29,
+          "y": 32.59
+        },
+        {
+          "letter": "P",
+          "x": 56.66,
+          "y": 48.14
+        }
       ]
     },
     "weather": {
@@ -120,7 +134,7 @@
       "dressCode": "Smart Casual",
       "dressNotes": "Linen shirts, sundresses, jumpsuits. Comfortable shoes for the lawn.",
       "description": "Drinks and light bites.",
-      "area": "Main Lawn"
+      "area": "Main Lawn (L)"
     },
     {
       "id": "ceremony",

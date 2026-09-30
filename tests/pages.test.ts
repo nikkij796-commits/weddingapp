@@ -94,7 +94,7 @@ describe('Meals', () => {
   it('shows where: the meal\'s own place, else the event\'s lawn/hall, else the venue', () => {
     const h = renderMeals(alex());
     expect(card(h, 'Afternoon snacks')).toContain('Main Lawn');
-    expect(card(h, 'Welcome drinks &amp; bites')).toContain('<p class="meal-where">Main Lawn</p>'); // event name dropped: the title already says it
+    expect(card(h, 'Welcome drinks &amp; bites')).toContain('<p class="meal-where">Main Lawn (L)</p>'); // event name dropped: the title already says it
     expect(card(h, 'Cocktail hour')).toContain('Cocktail Hour &amp; Reception &middot; Grand Ballroom');
     expect(card(h, 'Farewell brunch')).toContain('The Garden Terrace');
   });
@@ -104,10 +104,8 @@ describe('Meals', () => {
     expect(card(h, 'Welcome drinks &amp; bites')).toContain('<span class="pill options">Jain options</span>');
     expect(card(h, 'Farewell brunch')).not.toContain('pill');
   });
-  it('explains the labels once, and only when a label is used', () => {
-    expect(renderMeals(alex())).toContain('class="jain-legend"');
-    const plain = withContent(alex(), { meals: { intro: '', items: [{ eventId: 'brunch', label: 'Farewell brunch' }] } });
-    expect(renderMeals(plain)).not.toContain('jain-legend');
+  it('has no separate key for the labels: the pills speak for themselves', () => {
+    expect(renderMeals(alex())).not.toContain('jain-legend');
   });
   it('never shows a menu line', () => {
     const h = renderMeals(alex());
@@ -205,39 +203,45 @@ describe('Rides (Uber)', () => {
 });
 
 describe('Hotel map', () => {
-  it('embeds a map of the first place and lists every place with map and Uber links', () => {
+  it('shows the resort map with a pin for each of the guest\'s lettered spots, and no street map (Rides has directions)', () => {
     const h = renderMap(alex());
-    expect(h).toContain('<iframe');
-    expect(h).toContain('https://maps.google.com/maps?q=');
-    expect(decodeURIComponent(h.match(/q=([^&"]+)/)![1])).toContain('The Garden Terrace');
-    expect(h).toContain('Example Inn');
-    expect(h).toContain('maps.apple.com');
-    expect(h).toContain('m.uber.com');
-    expect(h).toContain('Host hotel and venue');
-  });
-  it('shows a property-map placeholder until an image is provided', () => {
-    expect(renderMap(alex())).toContain('Property Map');
-    expect(renderMap(alex())).toContain('where each lawn and hall is');
-    const withImg = withContent(alex(), { map: { intro: '', places: [], imagePath: 'resort-map.png', imageAlt: 'Resort map' } });
-    const h = renderMap(withImg);
-    expect(h).toContain('<img src="/resort-map.png" alt="Resort map"');
-    expect(h).not.toContain('will appear here');
-  });
-  it('falls back to the first event\'s venue when no places are configured', () => {
-    const h = renderMap(emptyContent(alex()));
-    expect(h).toContain('<iframe');
-    expect(decodeURIComponent(h.match(/q=([^&"]+)/)![1])).toContain('The Garden Terrace');
-  });
-  it('has a placeholder when there is nothing to show at all', () => {
-    const h = renderMap({ ...emptyContent(alex()), events: [] });
+    expect(h).toContain('<img src="/resort-map.jpg" alt="Resort map"');
+    expect(h).toContain('data-pin="L"');
+    expect(h).toContain('left:44.29%;top:32.59%');
+    expect(h).not.toContain('data-pin="P"'); // a spot on the map with none of this guest's events
     expect(h).not.toContain('<iframe');
-    expect(h).toContain('Coming soon');
+    expect(h).not.toContain('id="map-getting"');
   });
-  it('escapes names and addresses in URLs and text', () => {
-    const p = withContent(alex(), { map: { intro: '', places: [{ name: 'Bob\'s "Inn" & Spa', address: '1 A St #2' }] } });
+  it('each pin has a panel naming the spot and the guest\'s events there', () => {
+    const h = renderMap(alex());
+    const info = h.slice(h.indexOf('data-info="L"'), h.indexOf('</div>', h.indexOf('data-info="L"')));
+    expect(info).toContain('Main Lawn');
+    expect(info).toContain('Welcome Drinks');
+    expect(info).toContain('Fri 6:00 PM');
+  });
+  it('has zoom and full-size controls', () => {
+    const h = renderMap(alex());
+    expect(h).toContain('data-mapzoom');
+    expect(h).toMatch(/href="\/resort-map\.jpg"[^>]*>Full size</);
+  });
+  it('shows a property-map placeholder until an image is provided, and then no pins', () => {
+    const p = withContent(alex(), { map: { ...alex().content.map, imagePath: undefined } });
+    expect(renderMap(p)).toContain('Property Map');
+    expect(renderMap(p)).toContain('where each lawn and hall is');
+    expect(renderMap(p)).not.toContain('data-pin');
+    expect(renderMap(p)).not.toContain('data-mapfocus');
+  });
+  it('only pins events at the main property (letters belong to its map)', () => {
+    const p = alex();
+    p.events = p.events.map((e) => (e.id === 'ceremony' ? { ...e, area: 'Chapel (P)' } : e)); // Rosewood Chapel is elsewhere
+    expect(renderMap(p)).not.toContain('data-pin="P"');
+  });
+  it('escapes names in the pin panel', () => {
+    const p = alex();
+    p.events = p.events.map((e) => (e.id === 'welcome' ? { ...e, name: '<i>x</i>' } : e));
     const h = renderMap(p);
-    expect(h).toContain('Bob&#39;s &quot;Inn&quot; &amp; Spa');
-    expect(h).not.toMatch(/src="[^"]*"[^>]*"Inn"/);
+    expect(h).not.toContain('<i>x</i>');
+    expect(h).toContain('&lt;i&gt;x&lt;/i&gt;');
   });
 });
 
@@ -334,16 +338,21 @@ describe('Hotel map: property map and "Where is my event?"', () => {
     expect(h).toContain('data-where="ceremony"');
     expect(h).not.toMatch(/data-where="(welcome|reception|brunch)"/);
   });
-  it('puts the property map first, then the event list, then the street map', () => {
-    const h = renderMap(withContent(alex(), { map: { intro: '', places: [], imagePath: 'resort-map.png' } }));
-    const order = ['class="map-figure"', 'id="map-where"', 'id="map-getting"', '<iframe'].map((x) => h.indexOf(x));
-    expect(order.every((i) => i >= 0)).toBe(true);
-    expect([...order].sort((a, b) => a - b)).toEqual(order);
+  it('puts the property map first, then the event list', () => {
+    const h = renderMap(alex());
+    expect(h.indexOf('class="map-figure"')).toBeLessThan(h.indexOf('id="map-where"'));
+  });
+  it('rows for pinned events are buttons that show them on the map; others are plain', () => {
+    const h = renderMap(alex());
+    const row = (id: string) => h.slice(h.indexOf(`data-where="${id}"`), h.indexOf('</li>', h.indexOf(`data-where="${id}"`)));
+    expect(row('welcome')).toContain('data-mapfocus="L"');
+    expect(row('ceremony')).not.toContain('data-mapfocus');
+    expect(h).toContain('Tap an event to see it on the map.');
   });
   it('has no event list for a guest with no events, and still shows the map', () => {
     const h = renderMap({ ...alex(), events: [] });
     expect(h).not.toContain('map-where');
-    expect(h).toContain('Property Map');
+    expect(h).toContain('resort-map.jpg');
   });
   it('escapes the area text', () => {
     const p = alex();
@@ -358,9 +367,9 @@ describe('event area shows up everywhere an event location does', () => {
   it('on the event card, the meals page, and only when set', () => {
     const weekend = renderApp(alex(), 'weekend', before);
     const card = (id: string) => weekend.slice(weekend.indexOf(`data-event="${id}"`), weekend.indexOf('</article>', weekend.indexOf(`data-event="${id}"`)));
-    expect(card('welcome')).toContain('<span class="area">Main Lawn</span>');
+    expect(card('welcome')).toContain('<span class="area">Main Lawn (L)</span>');
     expect(card('ceremony')).not.toContain('class="area"');
-    expect(renderMeals(alex())).toContain('meal-where">Main Lawn<');
+    expect(renderMeals(alex())).toContain('meal-where">Main Lawn (L)<');
   });
 });
 
@@ -380,24 +389,6 @@ describe('events with no address yet (e.g. Airbnb)', () => {
     const p = airbnb();
     expect(renderRides(p)).not.toContain('Airbnb');
     expect(renderMap(p)).toContain('Airbnb &middot; address to be announced');
-  });
-});
-
-describe('resort-map letters', () => {
-  const lettered = (area: string | undefined): GuestPayload => {
-    const p = alex();
-    return { ...p, events: p.events.map((e) => (e.id === 'welcome' ? { ...e, area } : e)) };
-  };
-  it('adds the caption only when an area carries a map letter', () => {
-    expect(renderMap(lettered('Cholla Lawn (D)'))).toContain('letters in brackets match the letters on the resort map');
-    expect(renderMap(lettered('Main Lawn'))).not.toContain('letters in brackets');
-  });
-  it('the property map scrolls sideways and opens full size', () => {
-    const p = alex();
-    const html = renderMap({ ...p, content: { ...p.content, map: { ...p.content.map, imagePath: 'resort-map.jpg', imageAlt: 'Resort map' } } });
-    expect(html).toContain('class="map-scroll"');
-    expect(html).toContain('resort-map.jpg');
-    expect(html).toContain('target="_blank"');
   });
 });
 
