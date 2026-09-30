@@ -127,7 +127,7 @@ export function renderMeals(p: GuestPayload): string {
     const when =
       m.time ?? (m.start ? `${hm12(m.start)}${m.end ? ` &ndash; ${hm12(m.end)}` : ''}` : e ? (e.timeTbd ? 'Time to be announced' : formatTime(e.start, tz)) : '');
     const place = m.place ?? (e ? e.area ?? e.venue : '');
-    const context = [e && e.name !== m.label ? e.name : '', place].filter(Boolean).map(esc).join(' &middot; ');
+    const context = [e && !m.label.toLowerCase().includes(e.name.toLowerCase()) ? e.name : '', place].filter(Boolean).map(esc).join(' &middot; ');
     return `<article class="card meal" data-meal="${esc(m.eventId ?? m.date ?? '')}" data-label="${esc(m.label)}">
       ${when ? `<p class="time">${m.time ? esc(when) : when}</p>` : ''}
       <h3>${esc(m.label)}${m.jain ? ` <span class="pill ${m.jain}">${JAIN_LABEL[m.jain]}</span>` : ''}</h3>
@@ -139,15 +139,26 @@ export function renderMeals(p: GuestPayload): string {
   const hasJain = rows.some((r) => r.m.jain);
   return `${head('Meals', 'What is served, and when')}
   ${intro ? `<div class="intro">${paragraphs(intro)}</div>` : ''}
-  ${hasJain ? '<p class="jain-legend"><span class="pill full">Fully Jain</span> every dish is Jain &nbsp; <span class="pill options">Jain options</span> Jain dishes are available</p>' : ''}
+  ${hasJain ? '<div class="jain-legend"><p><span class="pill full">Fully Jain</span> Every dish is Jain</p><p><span class="pill options">Jain options</span> Jain dishes are available</p></div>' : ''}
   ${
     days.length
-      ? days.map((d) => `<section class="day"><h2>${esc(formatYmd(d.day))}</h2>${d.rows.map(card).join('')}</section>`).join('')
+      ? dayStrip(days.map((d) => d.day), 'meals') + days.map((d) => `<section class="day" id="meals-${d.day}"><h2>${esc(formatYmd(d.day))}</h2>${d.rows.map(card).join('')}</section>`).join('')
       : soon('Meal Schedule', 'Your meals will be listed here as they are finalized.')
   }`;
 }
 
 // ---------- Rides (Uber) ----------
+
+/** Sticky "Thu 17 · Fri 18 ..." strip that scrolls to each day. Only worth showing with 2+ days. */
+export function dayStrip(ymds: string[], prefix: string): string {
+  if (ymds.length < 2) return '';
+  const chip = (ymd: string) => {
+    const d = new Date(`${ymd}T12:00:00Z`);
+    const wd = d.toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' });
+    return `<button type="button" data-jump="${prefix}-${ymd}" aria-label="Jump to ${esc(formatYmd(ymd))}"><span>${wd}</span><b>${d.getUTCDate()}</b></button>`;
+  };
+  return `<nav class="daystrip" aria-label="Jump to a day">${ymds.map(chip).join('')}</nav>`;
+}
 
 function destinations(p: GuestPayload): { name: string; address: string }[] {
   const out: { name: string; address: string }[] = [];
@@ -201,12 +212,15 @@ function renderWhere(p: GuestPayload): string {
   const tz = p.content.timezone;
   const days = groupByDay(p.events, tz);
   if (!days.length) return '';
+  const home = (p.content.map.places[0]?.name ?? '').toLowerCase();
+  // Off the main property (or no lawn chosen yet): say the venue if it is somewhere else, else that it is not decided.
+  const offsite = (e: EventInfo) => !!home && e.venue.toLowerCase() !== home;
   return `<section id="map-where"><h2>Where is my event?</h2>
   ${days
     .map(
       (d) => `<h3 class="where-day">${esc(d.day)}</h3><ul class="where-list">${d.events
         .map(
-          (e) => `<li data-where="${esc(e.id)}"><span class="where-time">${esc(e.timeTbd ? 'Time TBA' : formatTime(e.start, tz))}</span><span class="where-what"><b>${esc(e.name)}</b>${e.area ? `<span class="where-area">${esc(e.area)}</span>` : !e.address ? `<span class="where-area tba">${esc(e.venue)} &middot; address to be announced</span>` : '<span class="where-area tba">Location to be announced</span>'}</span></li>`,
+          (e) => `<li data-where="${esc(e.id)}"><span class="where-time">${esc(e.timeTbd ? 'Time TBA' : formatTime(e.start, tz))}</span><span class="where-what"><b>${esc(e.name)}</b>${e.area ? `<span class="where-area">${esc(e.area)}</span>` : !e.address ? `<span class="where-area tba">${esc(e.venue)} &middot; address to be announced</span>` : offsite(e) ? `<span class="where-area">${esc(e.venue)}</span>` : '<span class="where-area tba">Location to be announced</span>'}</span></li>`,
         )
         .join('')}</ul>`,
     )
@@ -220,7 +234,7 @@ export function renderMap(p: GuestPayload): string {
   const primary = places[0] ?? (p.events[0] ? { name: p.events[0].venue, address: p.events[0].address } : null);
   const list = places.length ? places : primary ? [primary] : [];
   const property = imagePath
-    ? `<figure class="map-figure"><div class="map-scroll"><a href="${esc(BASE + imagePath)}" target="_blank" rel="noopener"><img src="${esc(BASE + imagePath)}" alt="${esc(imageAlt || 'Property map')}" loading="lazy"></a></div><figcaption class="muted">Swipe to look around. Tap the map to open it full size, then pinch to zoom.</figcaption></figure>`
+    ? `<figure class="map-figure"><div class="map-scroll"><a href="${esc(BASE + imagePath)}" target="_blank" rel="noopener"><img src="${esc(BASE + imagePath)}" alt="${esc(imageAlt || 'Property map')}" loading="lazy"></a></div><figcaption><a class="chip map-open" href="${esc(BASE + imagePath)}" target="_blank" rel="noopener">Open full-size map</a><span class="muted">Swipe the map to look around, or open it full size to pinch and zoom.</span></figcaption></figure>`
     : soon('Property Map', 'A map of the resort showing where each lawn and hall is will appear here.');
   const getting = primary
     ? `<section id="map-getting"><h2>Getting here</h2>

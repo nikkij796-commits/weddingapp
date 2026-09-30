@@ -94,7 +94,8 @@ describe('Meals', () => {
   it('shows where: the meal\'s own place, else the event\'s lawn/hall, else the venue', () => {
     const h = renderMeals(alex());
     expect(card(h, 'Afternoon snacks')).toContain('Main Lawn');
-    expect(card(h, 'Welcome drinks &amp; bites')).toContain('Welcome Drinks &middot; Main Lawn');
+    expect(card(h, 'Welcome drinks &amp; bites')).toContain('<p class="meal-where">Main Lawn</p>'); // event name dropped: the title already says it
+    expect(card(h, 'Cocktail hour')).toContain('Cocktail Hour &amp; Reception &middot; Grand Ballroom');
     expect(card(h, 'Farewell brunch')).toContain('The Garden Terrace');
   });
   it('labels each meal Fully Jain or Jain options, and nothing when not specified', () => {
@@ -317,7 +318,8 @@ describe('Hotel map: property map and "Where is my event?"', () => {
     const row = (id: string) => h.slice(h.indexOf(`data-where="${id}"`), h.indexOf('</li>', h.indexOf(`data-where="${id}"`)));
     expect(row('welcome')).toContain('Main Lawn');
     expect(row('reception')).toContain('Grand Ballroom');
-    expect(row('ceremony')).toContain('Location to be announced');
+    expect(row('ceremony')).toContain('Rosewood Chapel'); // a different venue from the main property
+    expect(row('brunch')).toContain('Location to be announced');
     expect(row('ceremony')).toContain('4:00 PM');
     expect(row('brunch')).toContain('Time TBA');
   });
@@ -358,7 +360,7 @@ describe('event area shows up everywhere an event location does', () => {
     const card = (id: string) => weekend.slice(weekend.indexOf(`data-event="${id}"`), weekend.indexOf('</article>', weekend.indexOf(`data-event="${id}"`)));
     expect(card('welcome')).toContain('<span class="area">Main Lawn</span>');
     expect(card('ceremony')).not.toContain('class="area"');
-    expect(renderMeals(alex())).toContain('Welcome Drinks &middot; Main Lawn');
+    expect(renderMeals(alex())).toContain('meal-where">Main Lawn<');
   });
 });
 
@@ -396,5 +398,18 @@ describe('resort-map letters', () => {
     expect(html).toContain('class="map-scroll"');
     expect(html).toContain('resort-map.jpg');
     expect(html).toContain('target="_blank"');
+  });
+});
+
+describe('day strip', () => {
+  it('weekend and meals each get a strip with one button per day, pointing at real sections', () => {
+    for (const html of [renderApp(alex(), 'weekend', before), renderMeals(alex())]) {
+      const targets = [...html.matchAll(/data-jump="((?:day|meals)-[\d-]+)"/g)].map((m) => m[1]);
+      expect(targets).toHaveLength(3); // Alex has Fri, Sat, Sun events
+      for (const t of targets) expect(html).toContain(`id="${t}"`);
+    }
+  });
+  it('is left out when the guest has only one day', () => {
+    expect(renderApp(sam(), 'weekend', before)).not.toContain('daystrip');
   });
 });

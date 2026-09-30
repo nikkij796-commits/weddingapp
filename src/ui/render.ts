@@ -1,9 +1,10 @@
 import { appleMapsUrl, googleCalendarUrl, googleMapsUrl } from '../core/links';
 import { firstName } from '../core/matching';
+import { ymdInTimezone } from '../core/weather';
 import { countdown, currentOrNext, eventStatus, formatDay, formatTime, groupByDay } from '../core/time';
 import type { EventInfo, GuestPayload } from '../core/types';
 import { esc } from './html';
-import { ALL_TABS, MORE_ITEMS, NAV, isMoreChild, navFor, renderMap, renderMeals, renderMore, renderProgram, renderRides, renderWeather, type TabId, type WeatherState } from './pages';
+import { ALL_TABS, dayStrip, MORE_ITEMS, NAV, isMoreChild, navFor, renderMap, renderMeals, renderMore, renderProgram, renderRides, renderWeather, type TabId, type WeatherState } from './pages';
 export { esc };
 export type { TabId, WeatherState };
 
@@ -128,7 +129,7 @@ export function renderWeekend(p: GuestPayload, now: Date): string {
   </section>
   ${
     days.length
-      ? days.map((d) => `<section class="day"${d.day === formatDay(now.toISOString(), tz) ? ' data-today' : ''}><h2>${esc(d.day)}${d.day === formatDay(now.toISOString(), tz) ? ' <span class="today">Today</span>' : ''}</h2>${d.events.map((e) => renderEvent(e, tz, now)).join('')}</section>`).join('')
+      ? dayStrip(days.map((d) => ymdInTimezone(new Date(d.events[0].start), tz)), 'day') + days.map((d) => `<section class="day" id="day-${ymdInTimezone(new Date(d.events[0].start), tz)}"${d.day === formatDay(now.toISOString(), tz) ? ' data-today' : ''}><h2>${esc(d.day)}${d.day === formatDay(now.toISOString(), tz) ? ' <span class="today">Today</span>' : ''}</h2>${d.events.map((e) => renderEvent(e, tz, now)).join('')}</section>`).join('')
       : '<p class="empty">Your schedule will appear here soon.</p>'
   }`;
 }

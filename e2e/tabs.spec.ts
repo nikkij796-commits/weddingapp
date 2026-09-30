@@ -154,7 +154,8 @@ test.describe('Hotel map: where is my event?', () => {
     await expect(where.locator('h2')).toHaveText('Where is my event?');
     await expect(where.locator('[data-where=welcome]')).toContainText('Main Lawn');
     await expect(where.locator('[data-where=reception]')).toContainText('Grand Ballroom');
-    await expect(where.locator('[data-where=ceremony]')).toContainText('Location to be announced');
+    await expect(where.locator('[data-where=ceremony]')).toContainText('Rosewood Chapel');
+    await expect(where.locator('[data-where=brunch]')).toContainText('Location to be announced');
     await expect(where.locator('[data-where=brunch]')).toContainText('Time TBA');
   });
   test('a one-event guest sees only their own event', async ({ page }) => {
@@ -297,5 +298,18 @@ test.describe('legibility on the new pages', () => {
         }
       }
     }
+  });
+});
+
+test.describe('day strip', () => {
+  test('tapping a day scrolls to it, and the strip stays visible while scrolling', async ({ page }) => {
+    await unlock(page, 'Alex Rivera');
+    await page.locator('.daystrip button', { hasText: 'Sun' }).click();
+    await expect(page.locator('.day h2', { hasText: 'Sunday' })).toBeInViewport();
+    await expect(page.locator('.daystrip')).toBeInViewport();
+  });
+  test('one-day guests have no strip', async ({ page }) => {
+    await unlock(page, 'Sam Chen');
+    await expect(page.locator('.daystrip')).toHaveCount(0);
   });
 });
