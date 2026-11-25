@@ -223,6 +223,7 @@ export function renderApp(p: GuestPayload, tab: TabId, now: Date, weather: Weath
     : '';
   return `
   <div class="app">
+    <a class="skip-link" href="#content" data-skip>Skip to content</a>
     <main id="content" tabindex="-1">${back}${pages[tab]()}</main>
     <nav class="tabs" aria-label="Sections">
       ${NAV.map((t) => `<button type="button" data-tab="${t.id}" ${t.id === active ? 'aria-current="page"' : ''}>${t.icon}<span>${t.label}</span></button>`).join('')}

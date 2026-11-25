@@ -373,7 +373,7 @@ window.addEventListener(
 
 // One delegated listener for actions inside pages that re-render (jump links, copy code, weather retry, map, calendar).
 root.addEventListener('click', async (ev) => {
-  const el = (ev.target as HTMLElement).closest<HTMLElement>('[data-jump],[data-copy],[data-retry],[data-cal],[data-gcal],[data-pin],[data-mapzoom],[data-mapfocus],[data-theme-set],[data-install],[data-install-dismiss]');
+  const el = (ev.target as HTMLElement).closest<HTMLElement>('[data-skip],[data-jump],[data-copy],[data-retry],[data-cal],[data-gcal],[data-pin],[data-mapzoom],[data-mapfocus],[data-theme-set],[data-install],[data-install-dismiss]');
   if (!el) return;
   if (el.hasAttribute('data-install')) {
     const p = installPrompt;
@@ -399,6 +399,8 @@ root.addEventListener('click', async (ev) => {
       /* private mode: still applies for this visit */
     }
     applyTheme(t);
+  } else if (el.hasAttribute('data-skip')) {
+    document.getElementById('content')?.focus();
   } else if (el.dataset.gcal) {
     const e = payload?.events.find((x) => x.id === el.dataset.gcal);
     if (e) window.open(googleCalendarUrl(e), '_blank', 'noopener');
@@ -418,7 +420,7 @@ root.addEventListener('click', async (ev) => {
     focusPins(letters, true);
   } else if (el.dataset.jump) {
     markDay(el.dataset.jump);
-    document.getElementById(el.dataset.jump)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    document.getElementById(el.dataset.jump)?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
   } else if (el.dataset.copy !== undefined) {
     const text = el.dataset.copy;
     try {
