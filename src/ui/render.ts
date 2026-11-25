@@ -127,7 +127,7 @@ export function renderEvent(e: EventInfo, tz: string, now: Date, p?: GuestPayloa
   const buttons = [
     pins.length ? `<button type="button" class="chip" data-mapfocus="${esc(pins.join(' '))}">Show on map</button>` : '',
     !onSite && e.address ? `<a class="chip" href="${esc(directionsUrl(e))}" target="_blank" rel="noopener">Directions</a>` : '',
-    !onSite && e.address ? `<a class="chip" data-uber href="${esc(uberRideUrl({ name: e.venue, address: e.address }))}" target="_blank" rel="noopener">Uber</a>` : '',
+    !onSite && e.address ? `<a class="chip" data-uber href="${esc(uberRideUrl({ name: e.venue, address: e.address, latitude: e.latitude, longitude: e.longitude }))}" target="_blank" rel="noopener">Uber</a>` : '',
     e.timeTbd ? '' : `<button type="button" class="chip" data-cal="${esc(e.id)}">Add to calendar</button>`,
     e.timeTbd ? '' : `<button type="button" class="chip" data-gcal="${esc(e.id)}">Google Calendar</button>`,
   ].filter(Boolean);
@@ -157,24 +157,29 @@ export function renderWeekend(p: GuestPayload, now: Date): string {
   return `
   <section class="hero${p.cover ? ' has-cover' : ''}">
     ${
+      // The countdown (or, during the weekend, now/next) sits on the picture so the day strip fits on the first screen.
       p.cover
-        ? `<h1 class="sr-only">${esc(p.content.coupleNames)}</h1><img class="cover" src="${esc(p.cover)}" alt="${esc(p.content.coupleNames)}${p.content.tagline ? `, ${esc(p.content.tagline)}` : ''}"><p class="eyebrow">Welcome, ${esc(firstName(p.guestName))}</p>`
+        ? `<h1 class="sr-only">${esc(p.content.coupleNames)}</h1>
+    <div class="cover-wrap">
+      <img class="cover" src="${esc(p.cover)}" alt="${esc(p.content.coupleNames)}${p.content.tagline ? `, ${esc(p.content.tagline)}` : ''}">
+      <div class="cover-overlay"><p class="eyebrow">Welcome, ${esc(firstName(p.guestName))}</p>${nn || renderCountdown(p, now)}</div>
+    </div>`
         : `<p class="eyebrow">Welcome, ${esc(firstName(p.guestName))}</p>
     <h1 class="monogram">${esc(p.content.coupleNames)}</h1>
-    ${p.content.tagline ? `<p class="tagline">${esc(p.content.tagline)}</p>` : ''}`
+    ${p.content.tagline ? `<p class="tagline">${esc(p.content.tagline)}</p>` : ''}
+    ${nn || renderCountdown(p, now)}`
     }
-    ${nn || renderCountdown(p, now)}
-    ${nn ? '' : `<p class="welcome">${esc(p.content.welcome)}</p>`}
     ${others.length ? `<p class="household">Your party: ${esc(others.join(', '))}</p>` : ''}
     ${datable > 1 ? `<button type="button" class="cal-all" data-cal="all">${ICON_CAL} Add all ${datable} events to my calendar</button>` : ''}
     ${p.cover ? '' : DESERT_SCENE}
   </section>
-  <div id="install-slot"></div>
   ${
     days.length
       ? dayStrip(days.map(ymd), 'day') +
+        // Below the strip, so the "add to home screen" card never pushes the strip off the first screen.
+        '<div id="install-slot"></div>' +
         days.map((d) => `<section class="day" id="day-${ymd(d)}"${d.day === today ? ' data-today' : ''}><h2>${esc(d.day)}${d.day === today ? ' <span class="today">Today</span>' : ''}</h2>${d.events.length > 1 ? `<p class="swipe-hint" aria-hidden="true">Swipe for ${d.events.length} events &rarr;</p>` : ''}<div class="swipe" role="group" aria-label="${esc(d.day)} events" tabindex="0">${d.events.map((e) => renderEvent(e, tz, now, p)).join('')}</div></section>`).join('')
-      : '<p class="empty">Your schedule will appear here soon.</p>'
+      : '<div id="install-slot"></div><p class="empty">Your schedule will appear here soon.</p>'
   }`;
 }
 

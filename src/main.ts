@@ -201,9 +201,26 @@ function showApp() {
   );
   applyTheme(savedTheme()); // marks the selected Appearance button
   paintInstall();
+  sizeEventCards();
   if (tab === 'weather') void refreshWeather();
   document.getElementById('signout')?.addEventListener('click', signOut);
 }
+
+/** Every event card gets the height of the tallest one, so swiping between them feels even. */
+function sizeEventCards() {
+  const cards = [...root.querySelectorAll<HTMLElement>('.swipe > .event')];
+  const host = document.getElementById('content');
+  if (!cards.length || !host) return;
+  host.style.removeProperty('--card-h');
+  const tallest = Math.max(...cards.map((c) => c.getBoundingClientRect().height));
+  if (tallest > 0) host.style.setProperty('--card-h', `${Math.ceil(tallest)}px`);
+}
+let resizeTimer = 0;
+window.addEventListener('resize', () => {
+  window.clearTimeout(resizeTimer);
+  resizeTimer = window.setTimeout(sizeEventCards, 120);
+});
+void document.fonts?.ready.then(sizeEventCards); // card text reflows once the web fonts arrive
 
 function signOut() {
   payload = null;
@@ -304,6 +321,66 @@ function addToCalendar(id: string) {
 
 // ---------- interactive resort map ----------
 
+/**
+ * Full-screen map viewer. It stays inside the app (opening the bare image would leave a home-screen
+ * app with no way back), and closes with its Close button, Escape, or the phone's Back gesture.
+ */
+let mapFullOpener: HTMLElement | null = null;
+function openMapFull(opener: HTMLElement) {
+  const src = document.querySelector<HTMLImageElement>('#resort-map img');
+  if (!src || document.getElementById('map-full')) return;
+  mapFullOpener = opener;
+  const dlg = document.createElement('dialog');
+  dlg.id = 'map-full';
+  dlg.className = 'map-full';
+  dlg.setAttribute('aria-label', 'Property map, full size');
+  dlg.innerHTML = `<div class="map-full-bar">
+      <button type="button" class="chip" data-mapfull-zoom aria-pressed="false">Zoom in</button>
+      <button type="button" class="map-full-close" data-mapfull-close aria-label="Close full-size map"><span aria-hidden="true">&times;</span> Close</button>
+    </div>
+    <div class="map-full-scroll" tabindex="0" aria-label="Map image, scroll to pan"><img alt=""></div>`;
+  const img = dlg.querySelector('img')!;
+  img.src = src.currentSrc || src.src;
+  img.alt = src.alt;
+  dlg.addEventListener('click', (ev) => {
+    const t = ev.target as HTMLElement;
+    if (t.closest('[data-mapfull-close]')) closeMapFull();
+    const z = t.closest<HTMLElement>('[data-mapfull-zoom]');
+    if (z) {
+      const on = z.getAttribute('aria-pressed') !== 'true';
+      z.setAttribute('aria-pressed', String(on));
+      z.textContent = on ? 'Zoom out' : 'Zoom in';
+      dlg.querySelector('.map-full-scroll')!.classList.toggle('zoomed', on);
+    }
+  });
+  dlg.addEventListener('cancel', (ev) => {
+    ev.preventDefault(); // Escape: close through the same path so history stays in step
+    closeMapFull();
+  });
+  document.body.appendChild(dlg);
+  document.documentElement.classList.add('modal-open');
+  dlg.showModal();
+  dlg.querySelector<HTMLElement>('[data-mapfull-close]')!.focus();
+  // Android Back / swipe-back closes the viewer instead of leaving the app.
+  history.pushState({ mapFull: true }, '');
+}
+
+function closeMapFull(fromHistory = false) {
+  const dlg = document.getElementById('map-full') as HTMLDialogElement | null;
+  if (!dlg) return;
+  dlg.close();
+  dlg.remove();
+  document.documentElement.classList.remove('modal-open');
+  if (!fromHistory && history.state?.mapFull) history.back();
+  const back = mapFullOpener?.isConnected ? mapFullOpener : document.querySelector<HTMLElement>('#resort-map [data-mapfull]');
+  back?.focus();
+  mapFullOpener = null;
+}
+
+window.addEventListener('popstate', () => {
+  if (document.getElementById('map-full')) closeMapFull(true);
+});
+
 function setMapZoom(zoomed: boolean) {
   const scroller = document.querySelector<HTMLElement>('#resort-map .map-scroll');
   if (!scroller) return;
@@ -350,11 +427,38 @@ function markDay(id: string | null) {
   });
 }
 
+/**
+ * Scrolls so the section's heading sits just under the sticky day strip (or the page top), and keeps
+ * the tapped chip highlighted while the page scrolls past the days in between.
+ */
+let jumpLock: string | null = null;
+let jumpLockTimer = 0;
+function jumpTo(id: string) {
+  const target = document.getElementById(id);
+  if (!target) return;
+  const strip = document.querySelector<HTMLElement>('.daystrip');
+  const heading = target.querySelector<HTMLElement>('h2') ?? target;
+  const y = Math.max(0, heading.getBoundingClientRect().top + window.scrollY - (strip?.offsetHeight ?? 0) - 12);
+  jumpLock = id;
+  markDay(id);
+  window.clearTimeout(jumpLockTimer);
+  jumpLockTimer = window.setTimeout(() => (jumpLock = null), 1500); // safety net if no scroll happens
+  window.scrollTo({ top: y, behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+}
+
 /** While scrolling, the day under the sticky strip is the selected one. */
 let spyTick = false;
 window.addEventListener(
   'scroll',
   () => {
+    if (jumpLock) {
+      // Still travelling to a tapped day: keep its chip lit until the scrolling stops.
+      window.clearTimeout(jumpLockTimer);
+      jumpLockTimer = window.setTimeout(() => {
+        jumpLock = null;
+      }, 160);
+      return;
+    }
     if (spyTick) return;
     spyTick = true;
     requestAnimationFrame(() => {
@@ -374,7 +478,7 @@ window.addEventListener(
 
 // One delegated listener for actions inside pages that re-render (jump links, copy code, weather retry, map, calendar).
 root.addEventListener('click', async (ev) => {
-  const el = (ev.target as HTMLElement).closest<HTMLElement>('[data-skip],[data-jump],[data-copy],[data-retry],[data-cal],[data-gcal],[data-pin],[data-mapzoom],[data-mapfocus],[data-theme-set],[data-install],[data-install-dismiss]');
+  const el = (ev.target as HTMLElement).closest<HTMLElement>('[data-skip],[data-jump],[data-copy],[data-retry],[data-cal],[data-gcal],[data-pin],[data-mapzoom],[data-mapfull],[data-mapfocus],[data-theme-set],[data-install],[data-install-dismiss]');
   if (!el) return;
   if (el.hasAttribute('data-install')) {
     const p = installPrompt;
@@ -409,6 +513,8 @@ root.addEventListener('click', async (ev) => {
     addToCalendar(el.dataset.cal);
   } else if (el.dataset.pin) {
     focusPins([el.dataset.pin], false);
+  } else if (el.hasAttribute('data-mapfull')) {
+    openMapFull(el);
   } else if (el.hasAttribute('data-mapzoom')) {
     setMapZoom(document.querySelector<HTMLElement>('#resort-map .map-scroll')?.dataset.zoomed !== 'true');
   } else if (el.dataset.mapfocus) {
@@ -420,8 +526,7 @@ root.addEventListener('click', async (ev) => {
     }
     focusPins(letters, true);
   } else if (el.dataset.jump) {
-    markDay(el.dataset.jump);
-    document.getElementById(el.dataset.jump)?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+    jumpTo(el.dataset.jump);
   } else if (el.dataset.copy !== undefined) {
     const text = el.dataset.copy;
     try {

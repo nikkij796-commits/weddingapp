@@ -204,3 +204,43 @@ describe('cover image at the top', () => {
     expect(h).not.toContain('class="cover"');
   });
 });
+
+describe('event cards: calendar buttons, Uber pin and swipe layout', () => {
+  const cardOf = (h: string, id: string) => {
+    const i = h.indexOf(`data-event="${id}"`);
+    return h.slice(i, h.indexOf('</article>', i));
+  };
+  it('a timed event offers both a calendar file and Google Calendar', () => {
+    const c = cardOf(renderWeekend(payloadFor('Sam Chen'), before), 'ceremony');
+    expect(c).toContain('data-cal="ceremony">Add to calendar</button>');
+    expect(c).toContain('data-gcal="ceremony">Google Calendar</button>');
+  });
+  it('an event without a time has neither calendar button', () => {
+    const c = cardOf(renderWeekend(payloadFor('Alex Rivera'), before), 'brunch');
+    expect(c).not.toContain('data-cal=');
+    expect(c).not.toContain('data-gcal=');
+  });
+  it('the Uber button carries the map pin so the app fills in the destination', () => {
+    const c = cardOf(renderWeekend(payloadFor('Sam Chen'), before), 'ceremony');
+    const href = c.match(/href="([^"]*m\.uber\.com[^"]*)"/)![1].replace(/&amp;/g, '&');
+    const u = new URL(href);
+    expect(u.searchParams.get('dropoff[latitude]')).toBe('40.7411');
+    expect(u.searchParams.get('dropoff[longitude]')).toBe('-73.9897');
+    expect(u.searchParams.get('dropoff[formatted_address]')).toBe('200 Example Avenue, Sampleville, NY 10001');
+  });
+  it("each day's events sit in one swipe row, with a hint only when there is more than one", () => {
+    const h = renderWeekend(payloadFor('Alex Rivera'), before);
+    const days = h.split('<section class="day"').slice(1);
+    expect(days).toHaveLength(3);
+    for (const d of days) {
+      expect(d).toContain('<div class="swipe" role="group"');
+      const n = (d.match(/<article class="event/g) ?? []).length;
+      if (n > 1) expect(d).toContain(`Swipe for ${n} events`);
+      else expect(d).not.toContain('swipe-hint');
+    }
+  });
+  it('has a skip link to the main content', () => {
+    const h = renderApp(payloadFor('Alex Rivera'), 'weekend', before);
+    expect(h).toMatch(/<a class="skip-link" href="#content"[^>]*>Skip to content<\/a>\s*<main id="content" tabindex="-1">/);
+  });
+});

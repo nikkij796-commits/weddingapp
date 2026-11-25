@@ -89,3 +89,27 @@ describe('event area in calendar locations', () => {
     expect(new URL(googleCalendarUrl(events[1])).searchParams.get('location')).toBe('Rosewood Chapel, 200 Example Avenue, Sampleville, NY 10001');
   });
 });
+
+describe('Uber deep link: destination pin', () => {
+  const hangar = { name: 'Scottsdale Hangar One', address: '15220 N 78th Way, Scottsdale, AZ 85260' };
+  it('sends the latitude and longitude, which the Uber app needs to fill in the destination', () => {
+    const u = new URL(uberRideUrl({ ...hangar, latitude: 33.6229, longitude: -111.9105 }));
+    expect(u.searchParams.get('dropoff[latitude]')).toBe('33.6229');
+    expect(u.searchParams.get('dropoff[longitude]')).toBe('-111.9105');
+    expect(u.searchParams.get('dropoff[formatted_address]')).toBe(hangar.address);
+    expect(u.searchParams.get('dropoff[nickname]')).toBe(hangar.name);
+    expect(u.searchParams.get('pickup')).toBe('my_location');
+  });
+  it('leaves the pin out when the place has no coordinates (address only)', () => {
+    const u = new URL(uberRideUrl(hangar));
+    expect(u.searchParams.has('dropoff[latitude]')).toBe(false);
+    expect(u.searchParams.has('dropoff[longitude]')).toBe(false);
+  });
+  it('never sends half a pin or a non-number', () => {
+    for (const bad of [{ latitude: 33.6 }, { longitude: -111.9 }, { latitude: NaN, longitude: -111.9 }, { latitude: 33.6, longitude: Infinity }]) {
+      const u = new URL(uberRideUrl({ ...hangar, ...bad }));
+      expect(u.searchParams.has('dropoff[latitude]')).toBe(false);
+      expect(u.searchParams.has('dropoff[longitude]')).toBe(false);
+    }
+  });
+});

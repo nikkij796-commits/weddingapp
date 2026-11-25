@@ -1,6 +1,6 @@
 import { parseCsv } from './csv';
 import { normalizeName } from './matching';
-import { pickContent, pickEvents } from './content';
+import { pickContent, pickCoords, pickEvents } from './content';
 import type { EventInfo, Guest, PublishedData } from './types';
 
 export { pickContent, pickEvents };
@@ -218,6 +218,15 @@ export function buildPublished(input: {
   const data: PublishedData = { code: input.code.trim(), events, guests, content };
 
   const problems = validate(data);
+  // Coordinates that were typed but can't be used would silently leave the Uber destination blank.
+  const rawPlaces: { label: string; x: any }[] = [
+    ...(Array.isArray(input.events) ? input.events : []).map((x: any) => ({ label: `Event "${String(x?.id ?? '')}"`, x })),
+    ...(Array.isArray((input.content as any)?.map?.places) ? (input.content as any).map.places : []).map((x: any) => ({ label: `Map place "${String(x?.name ?? '')}"`, x })),
+  ];
+  for (const { label, x } of rawPlaces) {
+    if (x?.latitude === undefined && x?.longitude === undefined) continue;
+    if (!('latitude' in pickCoords(x))) problems.push(`${label} has an invalid latitude/longitude (give both as numbers, e.g. 33.6229 and -111.9105)`);
+  }
   // Scan guest-visible copy (not names/codes) for private-sounding language.
   for (const { path, text } of [...strings(events, 'events'), ...strings(content, 'content')]) {
     // Ride vouchers legitimately state amounts; everywhere else a dollar figure looks like pricing.

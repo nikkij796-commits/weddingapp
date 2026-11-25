@@ -166,15 +166,23 @@ export function dayStrip(ymds: string[], prefix: string): string {
   return `<nav class="daystrip" aria-label="Jump to a day">${ymds.map(chip).join('')}</nav>`;
 }
 
-function destinations(p: GuestPayload): { name: string; address: string; note?: string }[] {
-  const out: { name: string; address: string; note?: string }[] = [];
-  const add = (name: string, address: string, note?: string) => {
-    if (address && !out.some((d) => d.address.toLowerCase() === address.toLowerCase())) out.push({ name, address, ...(note ? { note } : {}) });
+type Destination = { name: string; address: string; note?: string; latitude?: number; longitude?: number };
+
+function destinations(p: GuestPayload): Destination[] {
+  const out: Destination[] = [];
+  const add = (d: Destination) => {
+    const same = out.find((x) => x.address.toLowerCase() === d.address.toLowerCase());
+    // A later entry for the same address can still supply the map pin.
+    if (same) {
+      if (same.latitude === undefined && d.latitude !== undefined) Object.assign(same, { latitude: d.latitude, longitude: d.longitude });
+    } else if (d.address) out.push(d);
   };
-  for (const pl of p.content.map.places) add(pl.name, pl.address, pl.note);
-  for (const e of p.events) add(e.venue, e.address);
+  for (const pl of p.content.map.places) add({ name: pl.name, address: pl.address, ...(pl.note ? { note: pl.note } : {}), ...coordsOf(pl) });
+  for (const e of p.events) add({ name: e.venue, address: e.address, ...coordsOf(e) });
   return out;
 }
+
+const coordsOf = (x: { latitude?: number; longitude?: number }) => (x.latitude !== undefined && x.longitude !== undefined ? { latitude: x.latitude, longitude: x.longitude } : {});
 
 export function renderRides(p: GuestPayload): string {
   const r = p.content.rides;
@@ -275,7 +283,7 @@ export function renderMap(p: GuestPayload): string {
   const property = imagePath
     ? `<figure class="map-figure" id="resort-map">
     <div class="map-scroll" data-zoomed="false"><div class="map-canvas"><img src="${src}" alt="${esc(imageAlt || 'Property map')}" draggable="false">${pins}</div></div>
-    <div class="map-tools"><button type="button" class="chip" data-mapzoom>Zoom in</button><a class="chip" href="${src}" target="_blank" rel="noopener">Full size</a></div>
+    <div class="map-tools"><button type="button" class="chip" data-mapzoom>Zoom in</button><button type="button" class="chip" data-mapfull aria-haspopup="dialog">Full size</button></div>
     ${spots.size ? `<div class="map-info" aria-live="polite"><p class="pin-hint muted">Your events are pinned. Tap a pin to see what is there.</p>${info}</div>` : ''}
   </figure>`
     : soon('Property Map', 'A map of the resort showing where each lawn and hall is will appear here.');

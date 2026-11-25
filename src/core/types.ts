@@ -8,6 +8,9 @@ export interface EventInfo {
   /** Where on the property, e.g. "Sonoran Lawn" or "Grand Ballroom". Shown on the event and the property map page. */
   area?: string;
   address: string;
+  /** Optional map pin for the address. The Uber app only fills in the destination when it has these. */
+  latitude?: number;
+  longitude?: number;
   dressCode: string;
   dressNotes: string;
   description: string;
@@ -71,7 +74,7 @@ export interface Content {
     imageAlt?: string;
     /** Where each lettered spot sits on the map image, in percent of its width/height. Events whose area says "(D)" get a pin there. */
     spots?: { letter: string; x: number; y: number }[];
-    places: { name: string; address: string; note?: string }[] };
+    places: { name: string; address: string; note?: string; latitude?: number; longitude?: number }[] };
   /** Where to get the live weather from. Null hides the forecast and shows "coming soon". */
   weather: { place: string; latitude: number; longitude: number } | null;
 }

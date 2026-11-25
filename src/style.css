@@ -432,8 +432,24 @@ button.where-btn:hover, button.where-btn:focus-visible { border-color: var(--mar
 
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .hero.has-cover { padding-top: 0; background: var(--cream); }
-.hero .cover { display: block; width: calc(100% + 32px); max-width: none; margin: 0 -16px 1.1rem; aspect-ratio: 5 / 7; object-fit: cover; }
-@media (min-width: 700px) { .hero .cover { width: 100%; margin: 1rem 0 1.1rem; border-radius: var(--radius); box-shadow: var(--shadow); } }
+/* The picture fills what is left of the first screen after the strip, tabs and the lines under it, so the day strip shows without scrolling. */
+.cover-wrap { position: relative; margin: 0 -16px .2rem; overflow: hidden; }
+.hero .cover { display: block; width: 100%; max-width: none; margin: 0; object-fit: cover; object-position: center top;
+  height: clamp(220px, calc(100vh - 250px), 118vw); height: clamp(220px, calc(100svh - 250px - env(safe-area-inset-bottom)), 118vw); }
+@media (min-width: 700px) { .hero .cover { height: clamp(260px, calc(100svh - 270px), 560px); } }
+.cover-overlay { position: absolute; left: 0; right: 0; bottom: 0; padding: 2.2rem 16px .9rem; color: #fdf3e3;
+  /* Fades in over the top 2rem only, so every line of text sits on at least 80% shade, whatever the picture. */
+  background: linear-gradient(to top, rgba(22, 13, 8, .88) 0, rgba(22, 13, 8, .8) calc(100% - 2rem), rgba(22, 13, 8, 0) 100%); }
+.cover-overlay .eyebrow { color: #f7e4ca; margin-bottom: .2rem; text-shadow: 0 1px 2px rgba(0, 0, 0, .5); }
+.cover-overlay .cd { margin: .5rem 0 .1rem; }
+.cover-overlay .cd b { color: #fdf3e3; text-shadow: 0 1px 3px rgba(0, 0, 0, .5); }
+.cover-overlay .cd span { color: #f2dcc0; }
+.cover-overlay .cd-next, .cover-overlay .cd-done { color: #fdf3e3; margin: 0; text-shadow: 0 1px 2px rgba(0, 0, 0, .5); }
+.cover-overlay .cd-live { color: #fdf3e3; border-color: rgba(253, 243, 227, .7); margin-top: .4rem; }
+.cover-overlay .nownext { margin: .5rem auto 0; }
+.hero.has-cover .household { margin-top: .5rem; }
+.hero.has-cover .cal-all { margin-top: .6rem; }
+@media (min-width: 700px) { .cover-wrap { margin: 1rem 0 .4rem; border-radius: var(--radius); box-shadow: var(--shadow); } }
 
 .theme-switch { margin-top: 1.2rem; padding: 1rem 1.1rem; background: #fffaf1; border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); }
 .theme-switch h3 { font-family: var(--title); font-weight: 600; font-size: 1.3rem; margin: 0 0 .6rem; }
@@ -458,8 +474,13 @@ button.where-btn:hover, button.where-btn:focus-visible { border-color: var(--mar
 /* Events: swipe sideways through a day's cards */
 .swipe { display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; margin: 0 -16px; padding: 4px 16px 12px; scrollbar-width: none; }
 .swipe::-webkit-scrollbar { display: none; }
-.swipe > .event { flex: 0 0 88%; scroll-snap-align: center; margin: 0; }
-.swipe > .event:only-child { flex-basis: 100%; }
+.swipe > .event { flex: 0 0 88%; scroll-snap-align: center; margin: 0; display: flex; height: var(--card-h, auto); }
+/* One width and one height for every event card (the height is the tallest card's, set by main.ts). */
+.swipe:has(> .event:only-child) { justify-content: center; }
+.swipe > .event > .frame { flex: 1; display: flex; }
+.swipe > .event .panel { flex: 1; display: flex; flex-direction: column; }
+.swipe > .event .panel > .actions { margin-top: auto; padding-top: 1rem; }
+@media (min-width: 700px) { .swipe > .event { flex-basis: 82%; } }
 .swipe-hint { text-align: center; color: var(--muted); font-size: .8rem; margin: -.4rem 0 .5rem; }
 button.meal-where.link { display: block; background: none; border: 0; padding: 0; font: inherit; font-size: .9rem; color: var(--accent, var(--maroon)); text-decoration: underline; cursor: pointer; text-align: left; min-height: 32px; }
 
@@ -474,3 +495,27 @@ html { scroll-padding-top: 76px; }
 .swipe:focus-visible { outline: 3px solid var(--maroon); outline-offset: -3px; }
 a:focus-visible, button:focus-visible, summary:focus-visible, input:focus-visible { outline: 3px solid var(--maroon); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } .swipe { scroll-behavior: auto; } }
+
+/* Full-size map viewer */
+html.modal-open { overflow: hidden; }
+.map-full { position: fixed; inset: 0; width: 100%; height: 100%; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; background: #1a120c; color: #fdf3e3; display: flex; flex-direction: column; }
+.map-full::backdrop { background: rgba(0, 0, 0, .85); }
+.map-full-bar { display: flex; justify-content: space-between; align-items: center; gap: .75rem; padding: calc(env(safe-area-inset-top) + .5rem) calc(env(safe-area-inset-right) + 12px) .5rem calc(env(safe-area-inset-left) + 12px); background: #1a120c; border-bottom: 1px solid #3b2a1f; }
+.map-full-bar .chip { --accent: #fdf3e3; --chip-bg: transparent; color: #fdf3e3; border-color: rgba(253, 243, 227, .5); }
+.map-full-close { display: inline-flex; align-items: center; gap: .35rem; min-height: 44px; min-width: 44px; padding: .5rem 1rem; font: inherit; font-weight: 600; color: #1a120c; background: #fdf3e3; border: 0; border-radius: 999px; cursor: pointer; }
+.map-full-close span { font-size: 1.4rem; line-height: 1; }
+.map-full-close:focus-visible, .map-full-bar .chip:focus-visible, .map-full-scroll:focus-visible { outline: 3px solid #e9c77f; outline-offset: 2px; }
+.map-full-scroll { flex: 1; overflow: auto; -webkit-overflow-scrolling: touch; touch-action: pan-x pan-y pinch-zoom; padding-bottom: env(safe-area-inset-bottom); }
+.map-full-scroll { display: flex; }
+.map-full-scroll img { display: block; flex: none; width: 100%; height: auto; margin: auto; } /* auto margins centre it without clipping when zoomed */
+.map-full-scroll.zoomed img { width: 250%; max-width: none; }
+
+/* Short screens (e.g. 360x640): tighten the hero so the day strip still shows on the first screen. */
+@media (max-height: 700px) {
+  .hero { padding-top: 1.4rem; }
+  .monogram { font-size: clamp(2.8rem, 14vw, 4rem); }
+  .hero .cd { margin: .9rem 0 .2rem; gap: 1.2rem; }
+  .hero .cd b { font-size: 2.3rem; }
+  .hero .cal-all { margin-top: .8rem; }
+  .scene { max-height: 64px; margin-top: .8rem; }
+}

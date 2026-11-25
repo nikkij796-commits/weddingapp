@@ -8,6 +8,13 @@ import type { Content, EventInfo, MealItem } from './types';
 
 export const str = (v: unknown, fallback = ''): string => (typeof v === 'string' ? v.trim() : fallback);
 
+/** A latitude/longitude pair, kept only when both are real coordinates. */
+export function pickCoords(x: any): { latitude: number; longitude: number } | Record<string, never> {
+  const lat = typeof x?.latitude === 'number' ? x.latitude : NaN;
+  const lng = typeof x?.longitude === 'number' ? x.longitude : NaN;
+  return Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180 && !(lat === 0 && lng === 0) ? { latitude: lat, longitude: lng } : {};
+}
+
 export function pickEvents(raw: unknown): EventInfo[] {
   if (!Array.isArray(raw)) return [];
   // Allowlist: only these keys survive, whatever else the source file contains.
@@ -30,6 +37,7 @@ export function pickEvents(raw: unknown): EventInfo[] {
       if (m.length) out.moments = m;
     }
     if (str(e?.area)) out.area = str(e.area);
+    Object.assign(out, pickCoords(e));
     if (e?.timeTbd === true) out.timeTbd = true;
     if (e?.everyone === true) out.everyone = true;
     return out;
@@ -83,6 +91,7 @@ function pickMap(m: any): Content['map'] {
       .map((x: any) => {
         const place: Content['map']['places'][number] = { name: str(x?.name), address: str(x?.address) };
         if (str(x?.note)) place.note = str(x.note);
+        Object.assign(place, pickCoords(x));
         return place;
       })
       .filter((x) => x.name && x.address),

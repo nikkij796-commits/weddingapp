@@ -102,11 +102,25 @@ test.describe('personalized experience', () => {
     await expect(card.getByRole('link', { name: /Apple Maps|Google Maps/ })).toHaveCount(0);
   });
 
-  test('Add to calendar opens Google Calendar for this event (Android, Windows)', async ({ page }) => {
+  test('Google Calendar opens Google Calendar with this event filled in', async ({ page }) => {
     await page.context().route(/calendar\.google\.com/, (r) => r.fulfill({ body: 'ok' }));
     await unlock(page, 'Sam Chen');
-    const [popup] = await Promise.all([page.waitForEvent('popup'), page.locator('[data-event=ceremony]').getByRole('button', { name: 'Add to calendar' }).click()]);
-    expect(popup.url()).toMatch(/calendar\.google\.com.*text=Ceremony/);
+    const [popup] = await Promise.all([page.waitForEvent('popup'), page.locator('[data-event=ceremony]').getByRole('button', { name: 'Google Calendar' }).click()]);
+    const u = new URL(popup.url());
+    expect(u.hostname).toBe('calendar.google.com');
+    expect(u.searchParams.get('text')).toBe('Ceremony');
+    expect(u.searchParams.get('dates')).toBe('20270612T200000Z/20270612T204500Z');
+    expect(u.searchParams.get('location')).toContain('Rosewood Chapel');
+  });
+
+  test('Add to calendar downloads a calendar file for just this event, on any phone', async ({ page }) => {
+    await unlock(page, 'Sam Chen');
+    const [dl] = await Promise.all([page.waitForEvent('download'), page.locator('[data-event=ceremony]').getByRole('button', { name: 'Add to calendar' }).click()]);
+    expect(dl.suggestedFilename()).toBe('ceremony.ics');
+    const fs = await import('node:fs');
+    const text = fs.readFileSync((await dl.path())!, 'utf8');
+    expect(text.match(/BEGIN:VEVENT/g)).toHaveLength(1);
+    expect(text).toContain('SUMMARY:Ceremony');
   });
 
   test('the whole weekend downloads as one calendar file', async ({ page }) => {

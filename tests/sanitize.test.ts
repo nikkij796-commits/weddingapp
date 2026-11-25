@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parseCsv } from '../src/core/csv';
+import { pickContent, pickCoords } from '../src/core/content';
 import { PublishError, buildPublished, duplicateNames, findForbidden, guestsFromCsv, isPlaceholderName, pickEvents } from '../src/core/sanitize';
 import { sample } from './fixtures';
 
@@ -339,5 +340,45 @@ describe('events whose address is not known yet', () => {
   });
   it('still need a venue and a name', () => {
     expect(() => buildPublished({ code: 'ABCD1', events: [{ ...base.events[0], venue: '' }, ...base.events.slice(1)], content: base.content, guestsCsv: 'Name\nA B' })).toThrow(/needs a name and a venue/);
+  });
+});
+
+describe('map pins (latitude/longitude) for events and places', () => {
+  it('pickCoords keeps a real pair and drops anything unusable', () => {
+    expect(pickCoords({ latitude: 33.6229, longitude: -111.9105 })).toEqual({ latitude: 33.6229, longitude: -111.9105 });
+    for (const bad of [
+      {},
+      { latitude: 33.6 },
+      { longitude: -111.9 },
+      { latitude: '33.6', longitude: '-111.9' },
+      { latitude: 91, longitude: 0.5 },
+      { latitude: 10, longitude: -181 },
+      { latitude: 0, longitude: 0 },
+      { latitude: NaN, longitude: 1 },
+      null,
+    ])
+      expect(pickCoords(bad)).toEqual({});
+  });
+  it('events keep their coordinates; events without them have none', () => {
+    const [plain, pinned] = pickEvents([base.events[0], { ...base.events[0], id: 'x', latitude: 33.6229, longitude: -111.9105 }]);
+    expect(plain).not.toHaveProperty('latitude');
+    expect(pinned).toMatchObject({ latitude: 33.6229, longitude: -111.9105 });
+  });
+  it('map places keep their coordinates too', () => {
+    const c = pickContent({ ...base.content, map: { ...base.content.map, places: [{ name: 'Hangar One', address: '15220 N 78th Way', latitude: 33.6229, longitude: -111.9105 }] } });
+    expect(c.map.places[0]).toEqual({ name: 'Hangar One', address: '15220 N 78th Way', latitude: 33.6229, longitude: -111.9105 });
+  });
+  it('publishing keeps valid coordinates', () => {
+    const d = build({ events: base.events.map((e) => (e.id === 'welcome' ? { ...e, latitude: 33.6229, longitude: -111.9105 } : e)) });
+    expect(d.events.find((e) => e.id === 'welcome')).toMatchObject({ latitude: 33.6229, longitude: -111.9105 });
+  });
+  it('blocks the publish when coordinates were typed but cannot be used (so Uber is never left blank by mistake)', () => {
+    const cases = [{ latitude: 33.6 }, { latitude: '33.6', longitude: '-111.9' }, { latitude: 133.6, longitude: -111.9 }];
+    for (const bad of cases) {
+      const events = base.events.map((e) => (e.id === 'welcome' ? { ...e, ...bad } : e));
+      expect(() => build({ events })).toThrow(/Event "welcome" has an invalid latitude\/longitude/);
+    }
+    const content = { ...base.content, map: { ...base.content.map, places: [{ name: 'Hangar One', address: 'x', longitude: -111.9 }] } };
+    expect(() => build({ content })).toThrow(/Map place "Hangar One" has an invalid latitude\/longitude/);
   });
 });

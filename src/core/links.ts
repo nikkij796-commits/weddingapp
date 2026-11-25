@@ -12,8 +12,12 @@ export function googleMapsUrl(e: Pick<EventInfo, 'venue' | 'address'>): string {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${e.venue}, ${e.address}`)}`;
 }
 
-/** Opens the Uber app (or m.uber.com) with the destination filled in and pickup at the guest's location. */
-export function uberRideUrl(dest: { name: string; address: string }): string {
+/**
+ * Opens the Uber app (or m.uber.com) with pickup at the guest's location and the destination set.
+ * The Uber app treats the address text as a label only: it drops the destination pin from the
+ * latitude/longitude, so those are sent whenever the place has them.
+ */
+export function uberRideUrl(dest: { name: string; address: string; latitude?: number; longitude?: number }): string {
   const p = new URLSearchParams({
     action: 'setPickup',
     pickup: 'my_location',
@@ -21,6 +25,10 @@ export function uberRideUrl(dest: { name: string; address: string }): string {
     // A bare "City, ST" would drop the pin in the middle of town, so include the place name.
     'dropoff[formatted_address]': /\d/.test(dest.address) ? dest.address : [dest.name, dest.address].filter(Boolean).join(', '),
   });
+  if (Number.isFinite(dest.latitude) && Number.isFinite(dest.longitude)) {
+    p.set('dropoff[latitude]', String(dest.latitude));
+    p.set('dropoff[longitude]', String(dest.longitude));
+  }
   return `https://m.uber.com/ul/?${p.toString()}`;
 }
 

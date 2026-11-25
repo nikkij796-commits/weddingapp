@@ -222,7 +222,8 @@ describe('Hotel map', () => {
   it('has zoom and full-size controls', () => {
     const h = renderMap(alex());
     expect(h).toContain('data-mapzoom');
-    expect(h).toMatch(/href="\/resort-map\.jpg"[^>]*>Full size</);
+    expect(h).toContain('data-mapfull');
+    expect(h).toContain('src="/resort-map.jpg"'); // the image itself is still served from the app
   });
   it('shows a property-map placeholder until an image is provided, and then no pins', () => {
     const p = withContent(alex(), { map: { ...alex().content.map, imagePath: undefined } });
@@ -402,5 +403,37 @@ describe('day strip', () => {
   });
   it('is left out when the guest has only one day', () => {
     expect(renderApp(sam(), 'weekend', before)).not.toContain('daystrip');
+  });
+});
+
+describe('Rides and Hotel map follow-ups', () => {
+  it('Rides Uber links carry the map pin when the event has one', () => {
+    const h = renderRides(alex());
+    const hrefs = [...h.matchAll(/href="([^"]*m\.uber\.com[^"]*)"/g)].map((m) => new URL(m[1].replace(/&amp;/g, '&')));
+    const chapel = hrefs.find((u) => u.searchParams.get('dropoff[nickname]') === 'Rosewood Chapel')!;
+    expect(chapel.searchParams.get('dropoff[latitude]')).toBe('40.7411');
+    const terrace = hrefs.find((u) => u.searchParams.get('dropoff[nickname]') === 'The Garden Terrace')!;
+    expect(terrace.searchParams.has('dropoff[latitude]')).toBe(false);
+  });
+  it('a map place without a pin borrows one from an event at the same address', () => {
+    const p = alex();
+    const pinned = { ...p, events: p.events.map((e) => (e.venue === 'The Garden Terrace' ? { ...e, latitude: 40.1, longitude: -74.2 } : e)) };
+    const u = [...renderRides(pinned).matchAll(/href="([^"]*m\.uber\.com[^"]*)"/g)]
+      .map((m) => new URL(m[1].replace(/&amp;/g, '&')))
+      .find((x) => x.searchParams.get('dropoff[nickname]') === 'The Garden Terrace')!;
+    expect(u.searchParams.get('dropoff[latitude]')).toBe('40.1');
+  });
+  it('"Full size" opens the in-app viewer instead of leaving the app for the bare image', () => {
+    const h = renderMap(alex());
+    expect(h).toContain('<button type="button" class="chip" data-mapfull aria-haspopup="dialog">Full size</button>');
+    expect(h).not.toMatch(/<a[^>]*target="_blank"[^>]*>Full size<\/a>/);
+  });
+  it('a meal place with a map letter links to that pin; one without stays plain text', () => {
+    const p = withContent(alex(), {
+      meals: { intro: '', items: [{ date: '2027-06-11', label: 'Snacks A', place: 'Sonoran Lawn (L)' }, { date: '2027-06-11', label: 'Snacks B', place: 'Pool deck' }] },
+    });
+    const h = renderMeals(p);
+    expect(h).toContain('data-mapfocus="L">Sonoran Lawn (L)</button>');
+    expect(h).toContain('<p class="meal-where">Pool deck</p>');
   });
 });
