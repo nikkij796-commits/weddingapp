@@ -468,7 +468,7 @@ button.meal-where.link { display: block; background: none; border: 0; padding: 0
 .daystrip button:focus-visible { outline: 3px solid var(--maroon); outline-offset: 3px; }
 
 /* Accessibility */
-html { scroll-padding-top: 5.5rem; }
+html { scroll-padding-top: 76px; }
 .skip-link { position: absolute; left: 8px; top: -64px; z-index: 20; padding: .7rem 1rem; background: var(--maroon); color: var(--cream); border-radius: 8px; font-weight: 600; text-decoration: none; }
 .skip-link:focus { top: 8px; }
 .swipe:focus-visible { outline: 3px solid var(--maroon); outline-offset: -3px; }

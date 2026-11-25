@@ -361,10 +361,11 @@ window.addEventListener(
       spyTick = false;
       const strip = document.querySelector<HTMLElement>('.daystrip');
       if (!strip) return;
-      const line = strip.getBoundingClientRect().bottom + 24;
+      const line = strip.getBoundingClientRect().bottom + window.innerHeight * 0.3;
       const ids = [...strip.querySelectorAll<HTMLElement>('[data-jump]')].map((b) => b.dataset.jump!);
       let current = ids[0];
       for (const id of ids) if ((document.getElementById(id)?.getBoundingClientRect().top ?? Infinity) <= line) current = id;
+      if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4) current = ids[ids.length - 1];
       markDay(current);
     });
   },
