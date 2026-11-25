@@ -345,18 +345,19 @@ test.describe('day strip', () => {
   });
 });
 
-test.describe('dark mode', () => {
+test.describe('light only (no dark mode)', () => {
   const pages = ['Weekend', 'Meals', 'Rides', 'Hotel map', 'Weather', 'Program', 'FAQ', 'Updates'] as const;
-  const selectors = ['.chip', '.jump button', '.menu-card b', '.soon-panel h3', '.card h3', '.card p', '.meal .time', '.pill', '.nn-row b', '.nn-tag', '.where-btn b', '.where-area', '.event h3', '.event .attire', '.event .area', '.page-head h2', '.day > h2', '.wx-cond', '.wx-tip', '.faq summary', '.seg button', '.cal-all', '.eyebrow', '.install h3', '.install p', '.install-later'];
+  const selectors = ['.chip', '.jump button', '.menu-card b', '.soon-panel h3', '.card h3', '.card p', '.meal .time', '.pill', '.nn-row b', '.nn-tag', '.where-btn b', '.where-area', '.event h3', '.event .attire', '.event .area', '.page-head h2', '.day > h2', '.wx-cond', '.wx-tip', '.faq summary', '.cal-all', '.eyebrow', '.install h3', '.install p', '.install-later'];
+  const CREAM = 'rgb(253, 243, 227)';
 
-  test('follows the phone setting, and every page stays readable', async ({ page }) => {
+  test('a phone in dark mode still gets the light guide on every page, and it stays readable', async ({ page }) => {
     await page.emulateMedia({ colorScheme: 'dark' });
     await page.clock.install({ time: new Date('2027-06-12T16:10:00-04:00') }); // during the weekend: now/next is showing
     await unlock(page, 'Alex Rivera');
-    expect(await page.evaluate(() => getComputedStyle(document.body).backgroundColor)).toBe('rgb(22, 16, 12)');
     for (const label of pages) {
       await openTab(page, label);
       await expect(page.locator('#content')).toBeVisible();
+      expect(await page.evaluate(() => getComputedStyle(document.body).backgroundColor), label).toBe(CREAM);
       if (label === 'Weather') await expect(page.locator('.wx-day').first()).toBeVisible();
       for (const sel of selectors) {
         const els = page.locator(`#content ${sel}`);
@@ -371,29 +372,28 @@ test.describe('dark mode', () => {
       const tab = page.locator('.tabs button[aria-current=page]');
       expect(await contrast(tab), `${label} bottom bar`).toBeGreaterThanOrEqual(3);
     }
+    expect(await page.locator('meta[name=theme-color]').getAttribute('content')).toBe('#fdf3e3');
+    expect(await page.locator('meta[name=color-scheme]').getAttribute('content')).toBe('only light');
   });
 
-  test('the Appearance switch overrides the phone and is remembered', async ({ page }) => {
-    await page.emulateMedia({ colorScheme: 'dark' });
+  test('there is no Appearance switch, and a Dark choice saved by an older version is ignored and cleared', async ({ page }) => {
+    await page.goto('./');
+    await page.evaluate(() => localStorage.setItem('wedding.theme', 'dark'));
     await unlock(page, 'Alex Rivera');
-    await page.locator('.tabs button', { hasText: 'More' }).click();
-    await expect(page.locator('[data-theme-set=auto]')).toHaveAttribute('aria-pressed', 'true');
-    await page.locator('[data-theme-set=light]').click();
-    await expect(page.locator('[data-theme-set=light]')).toHaveAttribute('aria-pressed', 'true');
-    expect(await page.evaluate(() => getComputedStyle(document.body).backgroundColor)).toBe('rgb(253, 243, 227)');
-    await page.reload();
     await expect(page.locator('.tabs')).toBeVisible();
-    expect(await page.evaluate(() => getComputedStyle(document.body).backgroundColor)).toBe('rgb(253, 243, 227)');
-    await page.emulateMedia({ colorScheme: 'light' });
+    expect(await page.evaluate(() => getComputedStyle(document.body).backgroundColor)).toBe(CREAM);
+    expect(await page.evaluate(() => document.documentElement.dataset.theme ?? null)).toBeNull();
+    expect(await page.evaluate(() => localStorage.getItem('wedding.theme'))).toBeNull();
     await page.locator('.tabs button', { hasText: 'More' }).click();
-    await page.locator('[data-theme-set=dark]').click();
-    expect(await page.evaluate(() => getComputedStyle(document.body).backgroundColor)).toBe('rgb(22, 16, 12)');
-    expect(await page.locator('meta[name=theme-color]').getAttribute('content')).toBe('#16100c');
+    await expect(page.locator('.menu-card').first()).toBeVisible();
+    await expect(page.getByText('Appearance')).toHaveCount(0);
+    await expect(page.locator('[data-theme-set]')).toHaveCount(0);
   });
 
-  test('the sign-in screen is readable in dark mode too', async ({ page }) => {
+  test('the sign-in screen is light and readable on a dark-mode phone', async ({ page }) => {
     await page.emulateMedia({ colorScheme: 'dark' });
     await page.goto('./');
+    expect(await page.evaluate(() => getComputedStyle(document.body).backgroundColor)).toBe(CREAM);
     for (const sel of ['.eyebrow', '.monogram', '.lede', 'label', '.btn']) expect(await contrast(page.locator(sel).first()), sel).toBeGreaterThanOrEqual(3);
   });
 });

@@ -13,7 +13,7 @@ import { failureDelayMs, httpFetcher, unlock } from './core/vaultClient';
 import type { Outcome } from './core/vault';
 import { eventDays } from './core/weather';
 import { loadWeather } from './core/weatherClient';
-import { ALL_TABS, renderApp, renderGate, renderPartyPicker, renderProblem, type TabId, type WeatherState } from './ui/render';
+import { ALL_TABS, renderApp, renderGate, renderGcalList, renderPartyPicker, renderProblem, type TabId, type WeatherState } from './ui/render';
 import { renderInstall, renderWeatherBody } from './ui/pages';
 import { installKind } from './core/install';
 
@@ -55,26 +55,12 @@ window.addEventListener('appinstalled', () => {
   paintInstall();
 });
 
-// ---------- appearance (Auto follows the phone; Light/Dark are remembered on this device) ----------
-type Theme = 'auto' | 'light' | 'dark';
-const THEME_KEY = 'wedding.theme';
-function savedTheme(): Theme {
-  try {
-    const t = localStorage.getItem(THEME_KEY);
-    return t === 'light' || t === 'dark' ? t : 'auto';
-  } catch {
-    return 'auto';
-  }
+// Dark mode was removed: forget any Light/Dark choice saved by an earlier version.
+try {
+  localStorage.removeItem('wedding.theme');
+} catch {
+  /* private mode */
 }
-function applyTheme(t: Theme) {
-  if (t === 'auto') delete document.documentElement.dataset.theme;
-  else document.documentElement.dataset.theme = t;
-  const dark = t === 'dark' || (t === 'auto' && window.matchMedia?.('(prefers-color-scheme: dark)').matches);
-  document.querySelector('meta[name=theme-color]')?.setAttribute('content', dark ? '#16100c' : '#fdf3e3');
-  root.querySelectorAll<HTMLElement>('[data-theme-set]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.themeSet === t)));
-}
-applyTheme(savedTheme());
-window.matchMedia?.('(prefers-color-scheme: dark)').addEventListener?.('change', () => applyTheme(savedTheme()));
 let payload: GuestPayload | null = null;
 let tab: TabId = 'weekend';
 let jumpedToToday = false;
@@ -199,7 +185,6 @@ function showApp() {
       window.scrollTo({ top: 0 });
     }),
   );
-  applyTheme(savedTheme()); // marks the selected Appearance button
   paintInstall();
   sizeEventCards();
   if (tab === 'weather') void refreshWeather();
@@ -325,61 +310,126 @@ function addToCalendar(id: string) {
  * Full-screen map viewer. It stays inside the app (opening the bare image would leave a home-screen
  * app with no way back), and closes with its Close button, Escape, or the phone's Back gesture.
  */
-let mapFullOpener: HTMLElement | null = null;
-function openMapFull(opener: HTMLElement) {
-  const src = document.querySelector<HTMLImageElement>('#resort-map img');
-  if (!src || document.getElementById('map-full')) return;
-  mapFullOpener = opener;
+// ---------- in-app sheets (full-size map, Google Calendar list) ----------
+// A modal <dialog> that closes with its Close button, Escape, or the phone's Back gesture, and gives
+// focus back to the button that opened it. Staying in the app matters: a home-screen app has no
+// browser controls to get back with.
+let sheetOpener: HTMLElement | null = null;
+let sheetFallback = '';
+function openSheet(opts: { id: string; className: string; label: string; html: string; opener: HTMLElement; fallback: string; onClick?: (t: HTMLElement, dlg: HTMLDialogElement) => void }) {
+  if (document.querySelector('dialog.sheet')) return;
+  sheetOpener = opts.opener;
+  sheetFallback = opts.fallback;
   const dlg = document.createElement('dialog');
-  dlg.id = 'map-full';
-  dlg.className = 'map-full';
-  dlg.setAttribute('aria-label', 'Property map, full size');
-  dlg.innerHTML = `<div class="map-full-bar">
-      <button type="button" class="chip" data-mapfull-zoom aria-pressed="false">Zoom in</button>
-      <button type="button" class="map-full-close" data-mapfull-close aria-label="Close full-size map"><span aria-hidden="true">&times;</span> Close</button>
-    </div>
-    <div class="map-full-scroll" tabindex="0" aria-label="Map image, scroll to pan"><img alt=""></div>`;
-  const img = dlg.querySelector('img')!;
-  img.src = src.currentSrc || src.src;
-  img.alt = src.alt;
+  dlg.id = opts.id;
+  dlg.className = `sheet ${opts.className}`;
+  dlg.setAttribute('aria-label', opts.label);
+  dlg.innerHTML = opts.html;
   dlg.addEventListener('click', (ev) => {
     const t = ev.target as HTMLElement;
-    if (t.closest('[data-mapfull-close]')) closeMapFull();
-    const z = t.closest<HTMLElement>('[data-mapfull-zoom]');
-    if (z) {
-      const on = z.getAttribute('aria-pressed') !== 'true';
-      z.setAttribute('aria-pressed', String(on));
-      z.textContent = on ? 'Zoom out' : 'Zoom in';
-      dlg.querySelector('.map-full-scroll')!.classList.toggle('zoomed', on);
-    }
+    if (t.closest('[data-sheet-close]')) return closeSheet();
+    opts.onClick?.(t, dlg);
   });
   dlg.addEventListener('cancel', (ev) => {
     ev.preventDefault(); // Escape: close through the same path so history stays in step
-    closeMapFull();
+    closeSheet();
   });
   document.body.appendChild(dlg);
   document.documentElement.classList.add('modal-open');
   dlg.showModal();
-  dlg.querySelector<HTMLElement>('[data-mapfull-close]')!.focus();
-  // Android Back / swipe-back closes the viewer instead of leaving the app.
-  history.pushState({ mapFull: true }, '');
+  dlg.querySelector<HTMLElement>('[data-sheet-close]')?.focus();
+  history.pushState({ sheet: true }, ''); // Back closes the sheet instead of leaving the app
 }
 
-function closeMapFull(fromHistory = false) {
-  const dlg = document.getElementById('map-full') as HTMLDialogElement | null;
+function closeSheet(fromHistory = false) {
+  const dlg = document.querySelector<HTMLDialogElement>('dialog.sheet');
   if (!dlg) return;
   dlg.close();
   dlg.remove();
   document.documentElement.classList.remove('modal-open');
-  if (!fromHistory && history.state?.mapFull) history.back();
-  const back = mapFullOpener?.isConnected ? mapFullOpener : document.querySelector<HTMLElement>('#resort-map [data-mapfull]');
+  if (!fromHistory && history.state?.sheet) history.back();
+  const back = sheetOpener?.isConnected ? sheetOpener : document.querySelector<HTMLElement>(sheetFallback);
   back?.focus();
-  mapFullOpener = null;
+  sheetOpener = null;
 }
 
 window.addEventListener('popstate', () => {
-  if (document.getElementById('map-full')) closeMapFull(true);
+  if (document.querySelector('dialog.sheet')) closeSheet(true);
 });
+
+/** Full-size property map. */
+function openMapFull(opener: HTMLElement) {
+  const src = document.querySelector<HTMLImageElement>('#resort-map img');
+  if (!src) return;
+  openSheet({
+    id: 'map-full',
+    className: 'map-full',
+    label: 'Property map, full size',
+    opener,
+    fallback: '#resort-map [data-mapfull]',
+    html: `<div class="map-full-bar">
+      <button type="button" class="chip" data-mapfull-zoom aria-pressed="false">Zoom in</button>
+      <button type="button" class="map-full-close" data-sheet-close aria-label="Close full-size map"><span aria-hidden="true">&times;</span> Close</button>
+    </div>
+    <div class="map-full-scroll" tabindex="0" aria-label="Map image, scroll to pan"><img alt=""></div>`,
+    onClick: (t, dlg) => {
+      const z = t.closest<HTMLElement>('[data-mapfull-zoom]');
+      if (!z) return;
+      const on = z.getAttribute('aria-pressed') !== 'true';
+      z.setAttribute('aria-pressed', String(on));
+      z.textContent = on ? 'Zoom out' : 'Zoom in';
+      dlg.querySelector('.map-full-scroll')!.classList.toggle('zoomed', on);
+    },
+  });
+  const img = document.querySelector<HTMLImageElement>('#map-full img');
+  if (img) {
+    img.src = src.currentSrc || src.src;
+    img.alt = src.alt;
+  }
+}
+
+/** Google Calendar takes one event per link, so "all events" is a checklist of one-tap Add buttons. */
+const GCAL_KEY = 'wedding.gcal.added';
+function gcalAdded(): Set<string> {
+  try {
+    return new Set(JSON.parse(localStorage.getItem(GCAL_KEY) ?? '[]'));
+  } catch {
+    return new Set();
+  }
+}
+function openGcalList(opener: HTMLElement) {
+  const p = payload;
+  if (!p) return;
+  openSheet({
+    id: 'gcal-all',
+    className: 'gcal-sheet',
+    label: 'Add events to Google Calendar',
+    opener,
+    fallback: '[data-gcal-all]',
+    html: renderGcalList(p, gcalAdded()),
+    onClick: (t, dlg) => {
+      const add = t.closest<HTMLElement>('[data-gcal-one]');
+      if (!add) return;
+      const e = p.events.find((x) => x.id === add.dataset.gcalOne);
+      if (!e) return;
+      window.open(googleCalendarUrl(e), '_blank', 'noopener');
+      const done = gcalAdded();
+      done.add(e.id);
+      try {
+        localStorage.setItem(GCAL_KEY, JSON.stringify([...done]));
+      } catch {
+        /* private mode: still marked for this visit */
+      }
+      const row = add.closest('li')!;
+      row.classList.add('added');
+      add.textContent = 'Added ✓';
+      add.setAttribute('aria-label', `${e.name} added. Add again`);
+      const left = dlg.querySelectorAll('li:not(.added)').length;
+      const count = dlg.querySelector('[data-gcal-left]');
+      if (count) count.textContent = left ? `${left} to go` : 'All added';
+    },
+  });
+}
 
 function setMapZoom(zoomed: boolean) {
   const scroller = document.querySelector<HTMLElement>('#resort-map .map-scroll');
@@ -420,10 +470,16 @@ function focusPins(letters: string[], scrollPage: boolean) {
 }
 
 /** Highlights the day chip for the given section id (aria-current marks it for screen readers too). */
+/** The frozen menu at the top of a page: the day strip (Weekend, Meals) or the section menu (Rides). */
+const STICKY_NAV = '.daystrip, .jump';
+
 function markDay(id: string | null) {
-  document.querySelectorAll<HTMLElement>('.daystrip [data-jump]').forEach((b) => {
-    if (b.dataset.jump === id) b.setAttribute('aria-current', 'date');
-    else b.removeAttribute('aria-current');
+  document.querySelectorAll<HTMLElement>(STICKY_NAV).forEach((nav) => {
+    const kind = nav.classList.contains('daystrip') ? 'date' : 'true';
+    nav.querySelectorAll<HTMLElement>('[data-jump]').forEach((b) => {
+      if (b.dataset.jump === id) b.setAttribute('aria-current', kind);
+      else b.removeAttribute('aria-current');
+    });
   });
 }
 
@@ -436,7 +492,7 @@ let jumpLockTimer = 0;
 function jumpTo(id: string) {
   const target = document.getElementById(id);
   if (!target) return;
-  const strip = document.querySelector<HTMLElement>('.daystrip');
+  const strip = document.querySelector<HTMLElement>(STICKY_NAV);
   const heading = target.querySelector<HTMLElement>('h2') ?? target;
   const y = Math.max(0, heading.getBoundingClientRect().top + window.scrollY - (strip?.offsetHeight ?? 0) - 12);
   jumpLock = id;
@@ -463,7 +519,7 @@ window.addEventListener(
     spyTick = true;
     requestAnimationFrame(() => {
       spyTick = false;
-      const strip = document.querySelector<HTMLElement>('.daystrip');
+      const strip = document.querySelector<HTMLElement>(STICKY_NAV);
       if (!strip) return;
       const line = strip.getBoundingClientRect().bottom + window.innerHeight * 0.3;
       const ids = [...strip.querySelectorAll<HTMLElement>('[data-jump]')].map((b) => b.dataset.jump!);
@@ -478,7 +534,7 @@ window.addEventListener(
 
 // One delegated listener for actions inside pages that re-render (jump links, copy code, weather retry, map, calendar).
 root.addEventListener('click', async (ev) => {
-  const el = (ev.target as HTMLElement).closest<HTMLElement>('[data-skip],[data-jump],[data-copy],[data-retry],[data-cal],[data-gcal],[data-pin],[data-mapzoom],[data-mapfull],[data-mapfocus],[data-theme-set],[data-install],[data-install-dismiss]');
+  const el = (ev.target as HTMLElement).closest<HTMLElement>('[data-skip],[data-jump],[data-copy],[data-retry],[data-cal],[data-gcal],[data-pin],[data-mapzoom],[data-mapfull],[data-gcal-all],[data-mapfocus],[data-install],[data-install-dismiss]');
   if (!el) return;
   if (el.hasAttribute('data-install')) {
     const p = installPrompt;
@@ -495,15 +551,6 @@ root.addEventListener('click', async (ev) => {
       /* private mode: hide for this visit */
     }
     document.getElementById('install-slot')?.replaceChildren();
-  } else if (el.dataset.themeSet) {
-    const t = el.dataset.themeSet as Theme;
-    try {
-      if (t === 'auto') localStorage.removeItem(THEME_KEY);
-      else localStorage.setItem(THEME_KEY, t);
-    } catch {
-      /* private mode: still applies for this visit */
-    }
-    applyTheme(t);
   } else if (el.hasAttribute('data-skip')) {
     document.getElementById('content')?.focus();
   } else if (el.dataset.gcal) {
@@ -515,6 +562,8 @@ root.addEventListener('click', async (ev) => {
     focusPins([el.dataset.pin], false);
   } else if (el.hasAttribute('data-mapfull')) {
     openMapFull(el);
+  } else if (el.hasAttribute('data-gcal-all')) {
+    openGcalList(el);
   } else if (el.hasAttribute('data-mapzoom')) {
     setMapZoom(document.querySelector<HTMLElement>('#resort-map .map-scroll')?.dataset.zoomed !== 'true');
   } else if (el.dataset.mapfocus) {

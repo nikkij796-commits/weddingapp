@@ -42,13 +42,15 @@ describe('install card', () => {
     expect(renderInstall('none', 'more')).toBe('');
   });
   it('the More version cannot be dismissed', () => expect(renderInstall('ios', 'more')).not.toContain('data-install-dismiss'));
-  it('pages have slots for it: Weekend after the day strip (so the strip stays on the first screen), More above Appearance', () => {
+  it('pages have slots for it: Weekend after the day strip (so the strip stays on the first screen), More after the menu', () => {
     const w = renderApp(payloadFor('Alex Rivera'), 'weekend', new Date('2027-06-01T12:00:00-04:00'));
     expect(w.indexOf('class="daystrip"')).toBeGreaterThan(w.indexOf('class="hero'));
     expect(w.indexOf('id="install-slot"')).toBeGreaterThan(w.indexOf('class="daystrip"'));
     expect(w.indexOf('id="install-slot"')).toBeLessThan(w.indexOf('class="day"'));
     const m = renderMore();
-    expect(m.indexOf('id="install-more"')).toBeLessThan(m.indexOf('Appearance'));
+    expect(m.indexOf('id="install-more"')).toBeGreaterThan(m.indexOf('class="menu-grid"'));
+    expect(m).not.toContain('Appearance'); // dark mode was removed
+    expect(m).not.toContain('data-theme-set');
   });
 });
 

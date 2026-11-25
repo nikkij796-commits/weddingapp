@@ -204,7 +204,7 @@ describe('helpers', () => {
   it.each([['abc', 'abc', 0], ['abc', 'abd', 1], ['abc', 'ab', 1], ['abc', 'abcd', 1], ['abcd', 'abdc', 1], ['abc', 'xyz', 3], ['', 'ab', 2]])(
     'editDistance(%s,%s)=%i', (a, b, d) => expect(editDistance(a as string, b as string)).toBe(d));
   it('normalizeCode', () => {
-    expect(normalizeCode('  Lu Ke ')).toBe('luke');
+    expect(normalizeCode('  Te St ')).toBe('test');
     expect(normalizeCode('FOREVER')).toBe('forever');
   });
   it('failureDelayMs starts after a few misses and caps', () => {

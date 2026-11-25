@@ -152,7 +152,7 @@ describe('aliases, everyone-events and undecided times', () => {
   ];
   const sheet = 'Guest 1 name,Guest 2 name,ceremony\nMs. Nikita Jain,Mr. Soham Shah,TRUE\nMrs. Nikita Jain,Mr. Vipul Jain,FALSE';
   const make = (extra: object = {}) =>
-    buildPublished({ code: 'luke', events, content: base.content, guestsCsv: sheet, ...extra });
+    buildPublished({ code: 'test-code', events, content: base.content, guestsCsv: sheet, ...extra });
 
   it('keeps the everyone and timeTbd flags through the allowlist', () => {
     const d = make();
@@ -182,8 +182,8 @@ describe('aliases, everyone-events and undecided times', () => {
   it('the bride can unlock as "Nikki Jain" and shared "Nikita Jain" asks for a party', async () => {
     const { buildVault, unlockVault } = await import('../src/core/vault');
     const d = make({ aliases: { 'Ms. Nikita Jain': ['Nikki Jain'] } });
-    const files = await buildVault(d, 'luke', { iterations: 1000 });
-    const go = (name: string) => unlockVault(async (p) => files[p] ?? null, name, 'LUKE');
+    const files = await buildVault(d, 'test-code', { iterations: 1000 });
+    const go = (name: string) => unlockVault(async (p) => files[p] ?? null, name, 'TEST-CODE');
     expect((await go('Nikki Jain')).kind).toBe('ok');
     expect((await go('Nikita Jain')).kind).toBe('choose');
   });
@@ -273,8 +273,8 @@ describe('new guide content (program, meals, rides, map, weather)', () => {
   });
   it('the new content survives the encrypted vault', async () => {
     const { buildVault, unlockVault } = await import('../src/core/vault');
-    const files = await buildVault(make(), 'luke', { iterations: 1000 });
-    const r = await unlockVault(async (p) => files[p] ?? null, 'A B', 'luke');
+    const files = await buildVault(make(), 'test-code', { iterations: 1000 });
+    const r = await unlockVault(async (p) => files[p] ?? null, 'A B', 'test-code');
     if (r.kind !== 'ok') throw new Error('expected ok');
     expect(r.payload.content.rides.voucher.code).toBe('RIDE50');
     expect(r.payload.content.weather?.latitude).toBe(33.53);

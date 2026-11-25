@@ -125,9 +125,10 @@ test.describe('home screen first view', () => {
     await stripFitsFirstScreen(page);
   });
 
-  test('dark mode keeps the same first view', async ({ page }) => {
+  test('a phone in dark mode gets the same light first view', async ({ page }) => {
     await page.emulateMedia({ colorScheme: 'dark' });
     await withCover(page, '#ffffff');
     await stripFitsFirstScreen(page);
+    expect(await page.evaluate(() => getComputedStyle(document.body).backgroundColor)).toBe('rgb(253, 243, 227)');
   });
 });

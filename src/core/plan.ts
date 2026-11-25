@@ -92,3 +92,19 @@ export function eventPlace(p: GuestPayload, e: EventInfo) {
   const pins = onSite && map?.imagePath ? areaSpots(e.area).filter((s) => letters.has(s.letter)).map((s) => s.letter) : [];
   return { onSite, pins };
 }
+
+/** "15220 N 78th Way, Scottsdale, AZ 85260" -> "15220 n 78th way": the street line, ignoring case and spacing. */
+const streetOf = (address: string) => address.split(',')[0].trim().toLowerCase().replace(/\s+/g, ' ');
+
+/**
+ * The map pin for an event: its own coordinates, else those of a hotel-map place at the same street address
+ * (so a pin added once to the map's places also fills in the Uber destination on the event card).
+ */
+export function pinFor(p: GuestPayload, e: EventInfo): { latitude: number; longitude: number } | Record<string, never> {
+  if (e.latitude !== undefined && e.longitude !== undefined) return { latitude: e.latitude, longitude: e.longitude };
+  const street = e.address ? streetOf(e.address) : '';
+  if (!street) return {};
+  const places = (p.content.map as GuestPayload['content']['map'] | undefined)?.places ?? []; // tolerate an old saved copy
+  const hit = places.find((pl) => pl.latitude !== undefined && pl.longitude !== undefined && streetOf(pl.address) === street);
+  return hit ? { latitude: hit.latitude!, longitude: hit.longitude! } : {};
+}

@@ -1,5 +1,6 @@
+import type { GuestPayload } from '../src/core/types';
 import { describe, expect, it } from 'vitest';
-import { areaSpots, mealRows, nowNext, relativeDay } from '../src/core/plan';
+import { areaSpots, mealRows, nowNext, relativeDay, pinFor } from '../src/core/plan';
 import { directionsUrl, isAppleDevice } from '../src/core/links';
 import { renderWeekend } from '../src/ui/render';
 import { payloadFor } from './fixtures';
@@ -102,5 +103,28 @@ describe('weekend page: now/next and whole-weekend calendar', () => {
   it('every event card has an id the now/next rows can jump to', () => {
     const h = renderWeekend(alex(), at('2027-06-01T12:00:00-04:00'));
     for (const id of ['welcome', 'ceremony', 'reception', 'brunch']) expect(h).toContain(`id="ev-${id}"`);
+  });
+});
+
+describe('pinFor: map pin for an event', () => {
+  const p = payloadFor('Sam Chen');
+  const ceremony = p.events.find((e) => e.id === 'ceremony')!; // has its own pin in the sample
+  const withPlaces = (places: GuestPayload['content']['map']['places']): GuestPayload => ({ ...p, content: { ...p.content, map: { ...p.content.map, places } } });
+  const bare = { ...ceremony, latitude: undefined, longitude: undefined };
+
+  it("uses the event's own coordinates first", () => {
+    expect(pinFor(withPlaces([{ name: 'Elsewhere', address: '200 Example Avenue', latitude: 1, longitude: 2 }]), ceremony)).toEqual({ latitude: 40.7411, longitude: -73.9897 });
+  });
+  it('else borrows the pin of a map place at the same street address (case, spacing and city/zip ignored)', () => {
+    const q = withPlaces([{ name: 'Rosewood', address: '200  example AVENUE, Other City, NY', latitude: 33.62423536050788, longitude: -111.90555633100438 }]);
+    expect(pinFor(q, bare)).toEqual({ latitude: 33.62423536050788, longitude: -111.90555633100438 });
+  });
+  it('gives nothing when no place matches, the place has no pin, or the event has no address', () => {
+    expect(pinFor(withPlaces([{ name: 'X', address: '201 Example Avenue', latitude: 1, longitude: 2 }]), bare)).toEqual({});
+    expect(pinFor(withPlaces([{ name: 'X', address: '200 Example Avenue' }]), bare)).toEqual({});
+    expect(pinFor(withPlaces([{ name: 'X', address: '', latitude: 1, longitude: 2 }]), { ...bare, address: '' })).toEqual({});
+  });
+  it('tolerates an old saved copy with no map section', () => {
+    expect(pinFor({ ...p, content: { ...p.content, map: undefined as any } }, bare)).toEqual({});
   });
 });

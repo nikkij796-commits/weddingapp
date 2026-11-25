@@ -1,8 +1,8 @@
 import { directionsUrl, uberRideUrl } from '../core/links';
-import { eventPlace, nowNext, relativeDay } from '../core/plan';
+import { eventPlace, nowNext, pinFor, relativeDay } from '../core/plan';
 import { firstName } from '../core/matching';
 import { clock12, ymdInTimezone } from '../core/weather';
-import { countdown, currentOrNext, eventStatus, formatDay, formatTime, groupByDay } from '../core/time';
+import { countdown, currentOrNext, eventStatus, formatDay, formatTime, groupByDay, sortEvents } from '../core/time';
 import type { EventInfo, GuestPayload } from '../core/types';
 import { esc } from './html';
 import { ALL_TABS, JAIN_LABEL, dayStrip, MORE_ITEMS, NAV, isMoreChild, navFor, renderMap, renderMeals, renderMore, renderProgram, renderRides, renderWeather, type TabId, type WeatherState } from './pages';
@@ -116,6 +116,11 @@ export function renderNowNext(p: GuestPayload, now: Date): string {
 
 export { eventPlace };
 
+/** The Baraat & wedding ceremony card links to the Program (order of the ceremony). */
+export const hasProgramLink = (e: EventInfo) => e.id === 'wedding' || /\bbaraat\b|\bwedding ceremony\b/i.test(e.name);
+
+const coordsOnly = (e: EventInfo) => (e.latitude !== undefined && e.longitude !== undefined ? { latitude: e.latitude, longitude: e.longitude } : {});
+
 export function renderEvent(e: EventInfo, tz: string, now: Date, p?: GuestPayload): string {
   const status = eventStatus(e, now);
   const badge =
@@ -127,7 +132,8 @@ export function renderEvent(e: EventInfo, tz: string, now: Date, p?: GuestPayloa
   const buttons = [
     pins.length ? `<button type="button" class="chip" data-mapfocus="${esc(pins.join(' '))}">Show on map</button>` : '',
     !onSite && e.address ? `<a class="chip" href="${esc(directionsUrl(e))}" target="_blank" rel="noopener">Directions</a>` : '',
-    !onSite && e.address ? `<a class="chip" data-uber href="${esc(uberRideUrl({ name: e.venue, address: e.address, latitude: e.latitude, longitude: e.longitude }))}" target="_blank" rel="noopener">Uber</a>` : '',
+    !onSite && e.address ? `<a class="chip" data-uber href="${esc(uberRideUrl({ name: e.venue, address: e.address, ...(p ? pinFor(p, e) : coordsOnly(e)) }))}" target="_blank" rel="noopener">Uber</a>` : '',
+    hasProgramLink(e) ? `<button type="button" class="chip" data-tab="program">Program</button>` : '',
     e.timeTbd ? '' : `<button type="button" class="chip" data-cal="${esc(e.id)}">Add to calendar</button>`,
     e.timeTbd ? '' : `<button type="button" class="chip" data-gcal="${esc(e.id)}">Google Calendar</button>`,
   ].filter(Boolean);
@@ -144,6 +150,21 @@ export function renderEvent(e: EventInfo, tz: string, now: Date, p?: GuestPayloa
       ${buttons.length ? `<div class="actions">${buttons.join('')}</div>` : ''}
     </div></div>
   </article>`;
+}
+
+/** The Google Calendar checklist: one Add button per timed event, already-added ones ticked. */
+export function renderGcalList(p: GuestPayload, added: Set<string>): string {
+  const tz = p.content.timezone;
+  const events = sortEvents(p.events.filter((e) => !e.timeTbd));
+  const left = events.filter((e) => !added.has(e.id)).length;
+  const row = (e: EventInfo) => {
+    const done = added.has(e.id);
+    return `<li${done ? ' class="added"' : ''}><span class="gcal-when">${esc(formatDay(e.start, tz).split(',')[0].slice(0, 3))} ${formatTime(e.start, tz)}</span><b>${esc(e.name)}</b>
+      <button type="button" class="chip" data-gcal-one="${esc(e.id)}" aria-label="${esc(done ? `${e.name} added. Add again` : `Add ${e.name} to Google Calendar`)}">${done ? 'Added ✓' : 'Add'}</button></li>`;
+  };
+  return `<div class="gcal-head"><h2>Google Calendar</h2><button type="button" class="map-full-close" data-sheet-close aria-label="Close Google Calendar list"><span aria-hidden="true">&times;</span> Close</button></div>
+  <p class="gcal-help">Google Calendar adds one event at a time. Tap <b>Add</b>, save it in Google Calendar, then come back for the next. <span data-gcal-left>${left ? `${left} to go` : 'All added'}</span></p>
+  <ul class="gcal-list">${events.map(row).join('')}</ul>`;
 }
 
 export function renderWeekend(p: GuestPayload, now: Date): string {
@@ -170,7 +191,11 @@ export function renderWeekend(p: GuestPayload, now: Date): string {
     ${nn || renderCountdown(p, now)}`
     }
     ${others.length ? `<p class="household">Your party: ${esc(others.join(', '))}</p>` : ''}
-    ${datable > 1 ? `<button type="button" class="cal-all" data-cal="all">${ICON_CAL} Add all ${datable} events to my calendar</button>` : ''}
+    ${
+      datable > 1
+        ? `<div class="cal-all-row"><button type="button" class="cal-all" data-cal="all" aria-label="Add all ${datable} events to my calendar (calendar file)">${ICON_CAL} Add all ${datable} events</button><button type="button" class="cal-all" data-gcal-all aria-haspopup="dialog" aria-label="Add all ${datable} events to Google Calendar">${ICON_CAL} Google Calendar</button></div>`
+        : ''
+    }
     ${p.cover ? '' : DESERT_SCENE}
   </section>
   ${

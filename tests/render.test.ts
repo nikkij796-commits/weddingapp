@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { esc, firstName, renderApp, renderCountdown, renderFaq, renderGate, renderPartyPicker, renderUpdates, renderWeekend } from '../src/ui/render';
+import { esc, firstName, renderApp, renderCountdown, renderFaq, renderGate, renderPartyPicker, renderUpdates, renderWeekend, hasProgramLink, renderGcalList } from '../src/ui/render';
 import { payloadFor } from './fixtures';
 
 const before = new Date('2027-06-01T12:00:00-04:00');
@@ -242,5 +242,51 @@ describe('event cards: calendar buttons, Uber pin and swipe layout', () => {
   it('has a skip link to the main content', () => {
     const h = renderApp(payloadFor('Alex Rivera'), 'weekend', before);
     expect(h).toMatch(/<a class="skip-link" href="#content"[^>]*>Skip to content<\/a>\s*<main id="content" tabindex="-1">/);
+  });
+});
+
+describe('Program link on the Baraat & wedding ceremony card', () => {
+  const p = payloadFor('Alex Rivera');
+  const asWedding = { ...p, events: p.events.map((e) => (e.id === 'ceremony' ? { ...e, id: 'wedding', name: 'Baraat & Wedding Ceremony' } : e)) };
+  const cardOf = (h: string, id: string) => {
+    const i = h.indexOf(`data-event="${id}"`);
+    return h.slice(i, h.indexOf('</article>', i));
+  };
+  it('the Baraat & Wedding Ceremony card has a Program button that opens the Program tab', () => {
+    expect(cardOf(renderWeekend(asWedding, before), 'wedding')).toContain('<button type="button" class="chip" data-tab="program">Program</button>');
+  });
+  it('the Program button sits before the two calendar buttons, which stay side by side', () => {
+    const c = cardOf(renderWeekend(asWedding, before), 'wedding');
+    expect(c.indexOf('data-tab="program"')).toBeLessThan(c.indexOf('data-cal='));
+    expect(c.indexOf('data-cal=')).toBeLessThan(c.indexOf('data-gcal='));
+  });
+  it('matches by name too, but not other ceremonies', () => {
+    expect(hasProgramLink({ ...p.events[0], id: 'x', name: 'Baraat' })).toBe(true);
+    expect(hasProgramLink({ ...p.events[0], id: 'x', name: 'Mayra Ceremony' })).toBe(false);
+    expect(hasProgramLink({ ...p.events[0], id: 'x', name: 'Welcome Dinner' })).toBe(false);
+  });
+  it('no other card gets it', () => {
+    const h = renderWeekend(asWedding, before);
+    expect(h.match(/data-tab="program"/g)).toHaveLength(1);
+  });
+});
+
+describe('Add all: calendar file and Google Calendar side by side', () => {
+  const p = payloadFor('Alex Rivera');
+  it('the hero has both buttons in one row', () => {
+    const h = renderWeekend(p, before);
+    expect(h).toMatch(/<div class="cal-all-row"><button[^>]*data-cal="all"[^>]*>.*Add all 3 events<\/button><button[^>]*data-gcal-all[^>]*>.*Google Calendar<\/button><\/div>/);
+  });
+  it('the Google Calendar list has one Add per timed event, in time order, and ticks ones already added', () => {
+    const h = renderGcalList(p, new Set(['ceremony']));
+    const ids = [...h.matchAll(/data-gcal-one="([^"]+)"/g)].map((m) => m[1]);
+    expect(ids).toEqual(['welcome', 'ceremony', 'reception']); // brunch has no time yet
+    expect(h).toMatch(/<li class="added">[^]*?data-gcal-one="ceremony"[^>]*>Added ✓<\/button>/);
+    expect(h).toContain('2 to go');
+    expect(renderGcalList(p, new Set(['welcome', 'ceremony', 'reception']))).toContain('All added');
+  });
+  it('escapes event names', () => {
+    const q = { ...p, events: p.events.map((e) => (e.id === 'welcome' ? { ...e, name: '<b>x</b>' } : e)) };
+    expect(renderGcalList(q, new Set())).not.toContain('<b>x</b>');
   });
 });

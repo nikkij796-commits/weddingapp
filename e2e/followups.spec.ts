@@ -224,3 +224,116 @@ test.describe('accessibility basics', () => {
     await expect(page.locator('#content')).toBeFocused();
   });
 });
+
+test.describe('Program link from the wedding ceremony card', () => {
+  test.use({ serviceWorkers: 'block' });
+  test('tapping Program opens the Program tab at the top', async ({ page }) => {
+    await unlock(page, 'Alex Rivera');
+    await expect(page.locator('.daystrip')).toBeVisible();
+    // Name the sample ceremony like the real one, in the saved guide, and reload offline.
+    await page.evaluate(() => {
+      const key = 'wedding.session.v2';
+      const s = JSON.parse(localStorage.getItem(key)!);
+      for (const e of s.payload.events) if (e.id === 'ceremony') Object.assign(e, { id: 'wedding', name: 'Baraat & Wedding Ceremony' });
+      localStorage.setItem(key, JSON.stringify(s));
+    });
+    await page.route('**/vault/**', (r) => r.abort());
+    await page.reload();
+    const card = page.locator('[data-event=wedding]');
+    await expect(card.getByRole('button', { name: 'Program' })).toHaveCount(1);
+    await expect(page.locator('[data-event=welcome]').getByRole('button', { name: 'Program' })).toHaveCount(0);
+    await card.scrollIntoViewIfNeeded();
+    await card.getByRole('button', { name: 'Program' }).click();
+    await expect(page.locator('.tabs [aria-current=page]')).toContainText('Program');
+    await expect(page.locator('.page-head h2')).toHaveText('Wedding Program');
+    expect(await page.evaluate(() => window.scrollY)).toBe(0);
+  });
+});
+
+test.describe('Rides: the section menu is frozen at the top', () => {
+  test('stays on screen while scrolling, and each button lands its section just under it', async ({ page }) => {
+    await unlock(page, 'Alex Rivera');
+    await openTab(page, 'Rides');
+    const menu = page.locator('nav.jump');
+    await expect(menu).toBeVisible();
+    await page.evaluate(() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'instant' as ScrollBehavior }));
+    await expect(menu).toBeInViewport({ ratio: 1 });
+    expect((await menu.boundingBox())!.y).toBeLessThanOrEqual(1);
+    for (const [label, id] of [['Voucher', 'rides-voucher'], ['Get a ride', 'rides-go'], ['How it works', 'rides-how'], ['Voucher', 'rides-voucher']] as const) {
+      const btn = menu.getByRole('button', { name: label });
+      await btn.click();
+      await expect(btn).toHaveAttribute('aria-current', 'true');
+      await settle(page);
+      await expect(btn).toHaveAttribute('aria-current', 'true');
+      await expect(menu.locator('[aria-current]')).toHaveCount(1);
+      const r = await page.evaluate((sid) => {
+        const m = document.querySelector('nav.jump')!.getBoundingClientRect();
+        const h = document.querySelector(`#${sid} h2`)!.getBoundingClientRect();
+        return { gap: h.top - m.bottom, atBottom: innerHeight + scrollY >= document.documentElement.scrollHeight - 2, below: h.top >= m.bottom - 1 };
+      }, id);
+      expect(r.below, `${label} heading is not hidden under the menu`).toBe(true);
+      if (!r.atBottom) expect(r.gap).toBeLessThanOrEqual(24);
+    }
+    // nothing on the page scrolls sideways because of the full-width menu
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+  });
+});
+
+test.describe('Add all events to Google Calendar', () => {
+  test('opens a checklist; each Add opens Google Calendar for that event and is ticked, and it is remembered', async ({ page }) => {
+    await page.context().route(/calendar\.google\.com/, (r) => r.fulfill({ body: 'ok' }));
+    await unlock(page, 'Alex Rivera');
+    const open = page.getByRole('button', { name: 'Add all 3 events to Google Calendar' });
+    await expect(open).toBeVisible();
+    await open.click();
+    const sheet = page.getByRole('dialog', { name: 'Add events to Google Calendar' });
+    await expect(sheet).toBeVisible();
+    await expect(sheet.getByRole('button', { name: 'Close Google Calendar list' })).toBeFocused();
+    await expect(sheet.locator('li')).toHaveCount(3);
+    await expect(sheet).toContainText('3 to go');
+    const [popup] = await Promise.all([page.waitForEvent('popup'), sheet.getByRole('button', { name: 'Add Ceremony to Google Calendar' }).click()]);
+    const u = new URL(popup.url());
+    expect(u.searchParams.get('text')).toBe('Ceremony');
+    expect(u.searchParams.get('dates')).toBe('20270612T200000Z/20270612T204500Z');
+    await popup.close();
+    await expect(sheet.locator('li.added')).toHaveCount(1);
+    await expect(sheet.getByRole('button', { name: 'Ceremony added. Add again' })).toHaveText('Added ✓');
+    await expect(sheet).toContainText('2 to go');
+    // Escape closes and focus returns; reopening keeps the tick
+    await page.keyboard.press('Escape');
+    await expect(sheet).toHaveCount(0);
+    await expect(open).toBeFocused();
+    await open.click();
+    await expect(page.getByRole('dialog').locator('li.added')).toHaveCount(1);
+    // Back closes it too, staying in the app
+    await page.goBack();
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await expect(page.locator('.daystrip')).toBeVisible();
+  });
+  test('the list fits a small phone with its Close button in view', async ({ page }) => {
+    await unlock(page, 'Alex Rivera');
+    await page.getByRole('button', { name: 'Add all 3 events to Google Calendar' }).click();
+    const sheet = page.getByRole('dialog');
+    await expect(sheet.getByRole('button', { name: 'Close Google Calendar list' })).toBeInViewport({ ratio: 1 });
+    for (const b of await sheet.locator('[data-gcal-one]').all()) expect((await b.boundingBox())!.height).toBeGreaterThanOrEqual(40);
+    await sheet.getByRole('button', { name: 'Close Google Calendar list' }).click();
+    await expect(sheet).toHaveCount(0);
+  });
+});
+
+test.describe('compact event cards', () => {
+  test('a whole card fits on screen between the date strip and the tab bar, and button labels stay on one line', async ({ page }) => {
+    await unlock(page, 'Alex Rivera');
+    await expect(page.locator('.swipe > .event').first()).toBeVisible();
+    const r = await page.evaluate(() => ({
+      h: Math.max(...[...document.querySelectorAll('.swipe > .event')].map((c) => c.getBoundingClientRect().height)),
+      room: document.querySelector('.tabs')!.getBoundingClientRect().top - (document.querySelector('.daystrip') as HTMLElement).offsetHeight,
+      chips: [...document.querySelectorAll('.swipe > .event .actions .chip')].map((c) => c.getBoundingClientRect().height),
+    }));
+    expect(r.h).toBeLessThanOrEqual(r.room);
+    for (const ch of r.chips) {
+      expect(ch).toBeGreaterThanOrEqual(44);
+      expect(ch).toBeLessThan(52); // one line of text
+    }
+  });
+});

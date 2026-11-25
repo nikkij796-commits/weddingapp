@@ -192,7 +192,10 @@ section[id] { scroll-margin-top: 1rem; }
 .program-card p { font-family: var(--serif); font-size: 1.15rem; }
 
 /* ---------- Rides ---------- */
-.jump { display: flex; justify-content: center; flex-wrap: wrap; gap: .5rem; margin: 1.2rem 0 0; }
+.jump { display: flex; justify-content: center; flex-wrap: wrap; gap: .5rem; margin: 1.2rem -16px 0; padding: .6rem 16px;
+  /* Frozen at the top while the page scrolls, like the day strip. */
+  position: sticky; top: 0; z-index: 4; background: rgba(253, 243, 227, .94); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); }
+.jump button[aria-current='true'] { background: var(--maroon); color: var(--cream); border-color: var(--maroon); }
 .jump button { font: inherit; font-size: .78rem; letter-spacing: .06em; padding: .5rem .9rem; min-height: 40px; border: 1px solid #d9b98a; background: #fffaf1; color: var(--maroon); border-radius: 999px; cursor: pointer; }
 
 .voucher { text-align: center; }
@@ -329,6 +332,9 @@ section[id] { scroll-margin-top: 1rem; }
 
 .cal-all { display: inline-flex; align-items: center; gap: .5rem; margin: 1.2rem auto 0; padding: .7rem 1.1rem; min-height: 46px; font: inherit; font-size: .88rem; font-weight: 500; color: var(--maroon); background: rgba(255, 250, 241, .75); border: 1px solid color-mix(in srgb, var(--maroon) 35%, transparent); border-radius: 999px; cursor: pointer; }
 .cal-all:focus-visible { background: var(--maroon); color: var(--cream); }
+/* "Add all" as a calendar file, and the Google Calendar checklist, side by side so the hero stays short. */
+.cal-all-row { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; max-width: 26rem; margin: 1rem auto 0; }
+.cal-all-row .cal-all { margin: 0; justify-content: center; padding: .6rem .6rem; font-size: .84rem; white-space: nowrap; }
 
 /* event card: location lines */
 .venue .addr { font-size: .88rem; color: color-mix(in srgb, var(--ink-on) 72%, transparent); }
@@ -374,62 +380,8 @@ button.where-btn:hover, button.where-btn:focus-visible { border-color: var(--mar
 @media (hover: hover) { .daystrip button:hover span { color: var(--sand); } }
 @media (hover: hover) { .cal-all:hover { background: var(--maroon); color: var(--cream); } }
 
-/* ---------- Dark mode: follows the phone (Auto) unless the guest picks Light or Dark under More ---------- */
-:root[data-theme='dark'] { --cream: #16100c; --sand: #2c2018; --ink: #f1e3cc; --muted: #c2ac8e; --maroon: #e9c77f; --line: #3b2a1f; --danger: #ff9a8a;
-  --panel: #231913; --chip-bg: #231913; --surface: #231913; color-scheme: dark; }
-:root[data-theme='dark'] body { background: #16100c; }
-:root[data-theme='dark'] .hero { background: radial-gradient(700px 300px at 50% 0, #4a2a1a 0, rgba(0, 0, 0, 0) 70%), linear-gradient(180deg, #2a1810, #16100c); }
-:root[data-theme='dark'] .hero .scene { opacity: .55; }
-:root[data-theme='dark'] .gate { background: radial-gradient(900px 420px at 50% 0, #4a2a1a 0, rgba(0, 0, 0, 0) 70%), linear-gradient(180deg, #2a1810, #16100c); }
-:root[data-theme='dark'] .gate-card { background-color: #7a1f2b; }
-:root[data-theme='dark'] .gate-inner { background: #1e1511; }
-:root[data-theme='dark'] input, :root[data-theme='dark'] .party { background: #231913; border-color: #4a3526; color: var(--ink); }
-:root[data-theme='dark'] .btn { background: #e9c77f; color: #231913; }
-:root[data-theme='dark'] .btn:hover { background: #f3d99b; }
-:root[data-theme='dark'] .card, :root[data-theme='dark'] .menu-card, :root[data-theme='dark'] .where-btn, :root[data-theme='dark'] .daystrip button, :root[data-theme='dark'] .jump button, :root[data-theme='dark'] .pin-info, :root[data-theme='dark'] .jain-legend, :root[data-theme='dark'] .theme-switch { background: #231913; border-color: #3b2a1f; }
-:root[data-theme='dark'] .nn-row:not(.live), :root[data-theme='dark'] .cal-all { background: rgba(35, 25, 19, .92); border-color: #4a3526; }
-:root[data-theme='dark'] .nn-row.live b, :root[data-theme='dark'] .nn-row.live .nn-tag, :root[data-theme='dark'] .nn-row.live .nn-meta, :root[data-theme='dark'] .nn-row.live::after { color: #231913; }
-:root[data-theme='dark'] .nn-row.live .pulse { background: #231913; }
-:root[data-theme='dark'] .menu-icon { background: #2c2018; }
-:root[data-theme='dark'] .soon-panel { background: #211812; border-color: #4a3526; }
-:root[data-theme='dark'] .notice, :root[data-theme='dark'] .wx-tip { background: #2c2018; }
-:root[data-theme='dark'] .tabs, :root[data-theme='dark'] .daystrip { background: rgba(22, 16, 12, .94); }
-:root[data-theme='dark'] .pin::before, :root[data-theme='dark'] .pin-dot { background: #7a1f2b; }
-:root[data-theme='dark'] .pin-dot { color: #fff; }
-:root[data-theme='dark'] .pin.active::before { background: #e8a020; }
-:root[data-theme='dark'] .map-scroll { background: #efe6d8; }
-:root[data-theme='dark'] .event:not([data-event='reception']) { --ink-on: #3b2418; }
-:root[data-theme='dark'] .event .frame { box-shadow: 0 20px 40px -26px #000; }
-:root[data-theme='dark'] .event.past { opacity: .5; }
-@media (prefers-color-scheme: dark) {
-:root:not([data-theme='light']) { --cream: #16100c; --sand: #2c2018; --ink: #f1e3cc; --muted: #c2ac8e; --maroon: #e9c77f; --line: #3b2a1f; --danger: #ff9a8a;
-  --panel: #231913; --chip-bg: #231913; --surface: #231913; color-scheme: dark; }
-:root:not([data-theme='light']) body { background: #16100c; }
-:root:not([data-theme='light']) .hero { background: radial-gradient(700px 300px at 50% 0, #4a2a1a 0, rgba(0, 0, 0, 0) 70%), linear-gradient(180deg, #2a1810, #16100c); }
-:root:not([data-theme='light']) .hero .scene { opacity: .55; }
-:root:not([data-theme='light']) .gate { background: radial-gradient(900px 420px at 50% 0, #4a2a1a 0, rgba(0, 0, 0, 0) 70%), linear-gradient(180deg, #2a1810, #16100c); }
-:root:not([data-theme='light']) .gate-card { background-color: #7a1f2b; }
-:root:not([data-theme='light']) .gate-inner { background: #1e1511; }
-:root:not([data-theme='light']) input, :root:not([data-theme='light']) .party { background: #231913; border-color: #4a3526; color: var(--ink); }
-:root:not([data-theme='light']) .btn { background: #e9c77f; color: #231913; }
-:root:not([data-theme='light']) .btn:hover { background: #f3d99b; }
-:root:not([data-theme='light']) .card, :root:not([data-theme='light']) .menu-card, :root:not([data-theme='light']) .where-btn, :root:not([data-theme='light']) .daystrip button, :root:not([data-theme='light']) .jump button, :root:not([data-theme='light']) .pin-info, :root:not([data-theme='light']) .jain-legend, :root:not([data-theme='light']) .theme-switch { background: #231913; border-color: #3b2a1f; }
-:root:not([data-theme='light']) .nn-row:not(.live), :root:not([data-theme='light']) .cal-all { background: rgba(35, 25, 19, .92); border-color: #4a3526; }
-:root:not([data-theme='light']) .nn-row.live b, :root:not([data-theme='light']) .nn-row.live .nn-tag, :root:not([data-theme='light']) .nn-row.live .nn-meta, :root:not([data-theme='light']) .nn-row.live::after { color: #231913; }
-:root:not([data-theme='light']) .nn-row.live .pulse { background: #231913; }
-:root:not([data-theme='light']) .menu-icon { background: #2c2018; }
-:root:not([data-theme='light']) .soon-panel { background: #211812; border-color: #4a3526; }
-:root:not([data-theme='light']) .notice, :root:not([data-theme='light']) .wx-tip { background: #2c2018; }
-:root:not([data-theme='light']) .tabs, :root:not([data-theme='light']) .daystrip { background: rgba(22, 16, 12, .94); }
-:root:not([data-theme='light']) .pin::before, :root:not([data-theme='light']) .pin-dot { background: #7a1f2b; }
-:root:not([data-theme='light']) .pin-dot { color: #fff; }
-:root:not([data-theme='light']) .pin.active::before { background: #e8a020; }
-:root:not([data-theme='light']) .map-scroll { background: #efe6d8; }
-:root:not([data-theme='light']) .event:not([data-event='reception']) { --ink-on: #3b2418; }
-:root:not([data-theme='light']) .event .frame { box-shadow: 0 20px 40px -26px #000; }
-:root:not([data-theme='light']) .event.past { opacity: .5; }
-}
-
+/* Light only: the guide keeps its invitation colours even when the phone is in dark mode. */
+:root { color-scheme: only light; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .hero.has-cover { padding-top: 0; background: var(--cream); }
 /* The picture fills what is left of the first screen after the strip, tabs and the lines under it, so the day strip shows without scrolling. */
@@ -448,15 +400,9 @@ button.where-btn:hover, button.where-btn:focus-visible { border-color: var(--mar
 .cover-overlay .cd-live { color: #fdf3e3; border-color: rgba(253, 243, 227, .7); margin-top: .4rem; }
 .cover-overlay .nownext { margin: .5rem auto 0; }
 .hero.has-cover .household { margin-top: .5rem; }
-.hero.has-cover .cal-all { margin-top: .6rem; }
+.hero.has-cover .cal-all-row { margin-top: .6rem; }
 @media (min-width: 700px) { .cover-wrap { margin: 1rem 0 .4rem; border-radius: var(--radius); box-shadow: var(--shadow); } }
 
-.theme-switch { margin-top: 1.2rem; padding: 1rem 1.1rem; background: #fffaf1; border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); }
-.theme-switch h3 { font-family: var(--title); font-weight: 600; font-size: 1.3rem; margin: 0 0 .6rem; }
-.seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: .4rem; }
-.seg button { min-height: 44px; font: inherit; font-size: .9rem; font-weight: 500; color: var(--ink); background: transparent; border: 1px solid var(--line); border-radius: 10px; cursor: pointer; }
-.seg button[aria-pressed='true'] { background: var(--maroon); border-color: var(--maroon); color: var(--cream); }
-.theme-switch .muted { font-size: .85rem; margin: .6rem 0 0; }
 
 /* ---------- Add to home screen ---------- */
 .install { margin: 1.2rem 0 .4rem; padding: 1.1rem 1.2rem 1rem; background: #fffaf1; border: 1px solid var(--line); border-left: 4px solid var(--marigold); border-radius: var(--radius); box-shadow: var(--shadow); }
@@ -467,8 +413,6 @@ button.where-btn:hover, button.where-btn:focus-visible { border-color: var(--mar
 .install-actions .btn { margin-top: .5rem; }
 .install-later { display: block; margin: .2rem auto 0; }
 .install-more { margin-top: 1.2rem; }
-:root[data-theme='dark'] .install { background: #231913; border-color: #3b2a1f; border-left-color: #e8a020; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme='light']) .install { background: #231913; border-color: #3b2a1f; border-left-color: #e8a020; } }
 
 
 /* Events: swipe sideways through a day's cards */
@@ -516,6 +460,83 @@ html.modal-open { overflow: hidden; }
   .monogram { font-size: clamp(2.8rem, 14vw, 4rem); }
   .hero .cd { margin: .9rem 0 .2rem; gap: 1.2rem; }
   .hero .cd b { font-size: 2.3rem; }
-  .hero .cal-all { margin-top: .8rem; }
+  .hero .cal-all-row { margin-top: .8rem; }
   .scene { max-height: 64px; margin-top: .8rem; }
 }
+
+/* Google Calendar checklist sheet */
+.gcal-sheet { width: min(32rem, calc(100% - 24px)); max-height: calc(100% - 48px); margin: auto; padding: 1rem 1rem 1.2rem; border: 0; border-radius: var(--radius); background: var(--cream); color: var(--ink); box-shadow: 0 20px 60px -20px rgba(0, 0, 0, .5); overflow: auto; }
+.gcal-sheet::backdrop { background: rgba(22, 13, 8, .6); }
+.gcal-head { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
+.gcal-head h2 { font-family: var(--title); font-weight: 600; font-size: 1.6rem; color: var(--maroon); margin: 0; }
+.gcal-sheet .map-full-close { background: var(--maroon); color: var(--cream); }
+.gcal-help { font-size: .9rem; margin: .6rem 0 .8rem; color: var(--ink); }
+.gcal-help [data-gcal-left] { display: block; margin-top: .3rem; font-weight: 500; color: var(--maroon); }
+.gcal-list { list-style: none; margin: 0; padding: 0; display: grid; gap: .4rem; }
+.gcal-list li { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: .5rem; padding: .35rem .5rem; background: #fffaf1; border: 1px solid var(--line); border-radius: 10px; }
+.gcal-when { white-space: nowrap; font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; color: var(--maroon); }
+.gcal-list b { font-weight: 500; font-size: .95rem; }
+.gcal-list .chip { min-width: 4.6rem; }
+.gcal-list li.added { background: #eef3e6; border-color: #b9cba0; }
+.gcal-list li.added .chip { color: #3f5a2a; border-color: #8fa877; }
+
+/* Compact event cards (about two-thirds of the earlier height): same look, tighter type and spacing.
+   Buttons stay at least 44px tall and keep their labels on one line. */
+.swipe > .event .frame { padding: 7px; }
+.swipe > .event .panel { padding: 1.8rem .9rem .9rem; border-radius: 50% 50% 8px 8px / 64px 64px 8px 8px; }
+.swipe > .event .time { font-size: .7rem; letter-spacing: .14em; margin-bottom: .1rem; }
+.swipe > .event h3 { font-size: clamp(1.45rem, 6.2vw, 1.8rem); line-height: 1.08; }
+.swipe > .event h3 + * { margin-top: .2rem; }
+.swipe > .event .desc { font-size: .98rem; line-height: 1.3; margin: .2rem auto .4rem; }
+.swipe > .event .moments { margin: .3rem auto .4rem; gap: .05rem; }
+.swipe > .event .moments li { font-size: 1rem; }
+.swipe > .event .moments b { font-size: .66rem; }
+.swipe > .event .venue { margin: .2rem 0 .35rem; font-size: .85rem; }
+.swipe > .event .venue .area { font-size: 1.15rem; }
+.swipe > .event .venue strong { font-size: .7rem; }
+.swipe > .event .dress { margin: 0 0 .2rem; }
+.swipe > .event .dress .label { font-size: .6rem; }
+.swipe > .event .dress .attire { font-size: 1.05rem; }
+.swipe > .event .dress .muted { font-size: .82rem; }
+.swipe > .event .panel > .actions { gap: .35rem; padding-top: .5rem; }
+.swipe > .event .actions .chip { min-height: 44px; padding: .4rem .35rem; font-size: .78rem; white-space: nowrap; }
+.swipe > .event .rule { margin: .1rem auto .15rem; }
+
+/* Weather: one compact row per day (the whole stay on one screen); tap a row for the details. */
+.wx-days { display: grid; gap: .4rem; }
+.wx-day.card { padding: 0; margin: 0; }
+.wx-day summary { display: grid; grid-template-columns: 4.3rem 1.9rem minmax(0, 1fr) auto 3.6rem 1rem; align-items: center; gap: .45rem; min-height: 56px; padding: .35rem .7rem; cursor: pointer; list-style: none; }
+.wx-day summary::-webkit-details-marker { display: none; }
+.wx-day summary::after { content: '\203A'; color: var(--muted); font-size: 1.3rem; line-height: 1; transition: transform .2s; justify-self: end; }
+.wx-day[open] summary::after { transform: rotate(90deg); }
+.wx-day summary:focus-visible { outline: 3px solid var(--maroon); outline-offset: 2px; border-radius: var(--radius); }
+.wx-date { display: grid; line-height: 1.15; font-size: .8rem; color: var(--muted); }
+.wx-date b { font-family: var(--title); font-weight: 600; font-size: 1.15rem; color: var(--maroon); }
+.wx-date .today { font-size: .6rem; }
+.wx-day .wx-icon { font-size: 1.6rem; text-align: center; }
+.wx-day .wx-cond { font-family: var(--serif); font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wx-day .wx-temps { white-space: nowrap; }
+.wx-day .wx-temps b { font-size: 1.45rem; }
+.wx-day .wx-temps span { font-size: .9rem; margin-left: .1rem; }
+.wx-rain { font-size: .72rem; color: var(--muted); text-align: right; line-height: 1.1; }
+.wx-rain b { display: block; font-size: .9rem; color: var(--ink); font-weight: 500; }
+.wx-more { padding: .2rem .9rem .9rem; border-top: 1px solid var(--line); }
+.wx-more header { display: flex; align-items: center; gap: .5rem; margin-top: .6rem; }
+.wx-more h3 { font-size: 1.15rem; }
+.wx-temps-full { margin: .2rem 0; }
+.wx-temps-full b { font-family: var(--serif); font-weight: 500; font-size: 1.6rem; color: var(--maroon); }
+.wx-temps-full span { color: var(--muted); }
+.wx-credit { margin-top: .7rem; font-size: .76rem; }
+.wx-banner { margin: .6rem 0 .5rem; font-size: .8rem; line-height: 1.35; }
+@media (max-width: 370px) { .wx-day summary { grid-template-columns: 3.9rem 1.6rem minmax(0, 1fr) auto 3.2rem .8rem; gap: .35rem; padding: .3rem .55rem; } }
+
+/* Weather fits one screen: compact title, rows and footer on this page; the page ends just above the tab bar. */
+#content:has(.wx-page) .back { margin-top: .2rem; }
+.wx-page .page-head { padding-top: .2rem; }
+.wx-page .page-head h2 { font-size: 2.3rem; }
+.wx-page .page-sub { margin-top: .25rem; }
+.wx-page .wx-day summary { min-height: 50px; padding-top: .25rem; padding-bottom: .25rem; }
+.wx-page .wx-credit { margin-top: .5rem; }
+.app:has(.wx-page) { padding-bottom: calc(62px + env(safe-area-inset-bottom)); }
+.app:has(.wx-page) .foot { padding-top: .4rem; }
+@media (max-width: 400px) { .wx-day summary { grid-template-columns: 4.1rem 1.9rem minmax(0, 1fr) 3.4rem 1rem; } .wx-day .wx-cond { display: none; } .wx-day .wx-temps { justify-self: center; } }

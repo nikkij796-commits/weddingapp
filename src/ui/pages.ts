@@ -92,13 +92,7 @@ export function renderMore(): string {
   <div class="menu-grid">
     ${MORE_ITEMS.map((m) => `<button type="button" class="menu-card" data-tab="${m.id}"><span class="menu-icon">${m.icon}</span><span class="menu-text"><b>${esc(m.title)}</b><small>${esc(m.blurb)}</small></span><span class="chev" aria-hidden="true">&rsaquo;</span></button>`).join('')}
   </div>
-  <div id="install-more"></div>
-  <section class="theme-switch" aria-labelledby="theme-h"><h3 id="theme-h">Appearance</h3>
-    <div class="seg" role="group" aria-labelledby="theme-h">
-      <button type="button" data-theme-set="auto">Auto</button><button type="button" data-theme-set="light">Light</button><button type="button" data-theme-set="dark">Dark</button>
-    </div>
-    <p class="muted">Auto matches your phone&rsquo;s setting.</p>
-  </section>`;
+  <div id="install-more"></div>`;
 }
 
 // ---------- Program ----------
@@ -171,7 +165,8 @@ type Destination = { name: string; address: string; note?: string; latitude?: nu
 function destinations(p: GuestPayload): Destination[] {
   const out: Destination[] = [];
   const add = (d: Destination) => {
-    const same = out.find((x) => x.address.toLowerCase() === d.address.toLowerCase());
+    const street = (a: string) => a.split(',')[0].trim().toLowerCase().replace(/\s+/g, ' ');
+    const same = out.find((x) => x.address.toLowerCase() === d.address.toLowerCase() || (!!d.address && street(x.address) === street(d.address)));
     // A later entry for the same address can still supply the map pin.
     if (same) {
       if (same.latitude === undefined && d.latitude !== undefined) Object.assign(same, { latitude: d.latitude, longitude: d.longitude });
@@ -314,43 +309,57 @@ export function renderWeatherBody(p: GuestPayload, state: WeatherState, now: Dat
   }
   const typicalDays = state.days.filter((d) => d.kind === 'typical');
   const banner = typicalDays.length
-    ? `<p class="wx-banner"><b>Typical weather</b> for these dates, averaged from past years. The live forecast starts on ${esc(formatYmd(forecastOpensOn(typicalDays[0].date)))}.</p>`
+    ? `<p class="wx-banner"><b>Typical weather</b> from past years. The live forecast starts on ${esc(formatYmd(forecastOpensOn(typicalDays[0].date)))}.</p>`
     : `<p class="wx-banner"><b>Live forecast</b> &middot; updated ${esc(formatTime(new Date(state.updatedAt).toISOString(), tz))}${state.stale ? ' (saved copy; you appear to be offline)' : ''}</p>`;
 
+  // One compact row per day so the whole stay fits on one screen; tap a day for the details.
   const day = (d: (typeof state.days)[number]) => {
     const info = weatherCodeInfo(d.code);
     const events = sortEvents(eventsByDay.get(d.date) ?? []);
     const tips = tipsFor(d);
-    return `<article class="card wx-day" data-day="${esc(d.date)}" data-kind="${d.kind}">
-      <header><span class="badge">${d.kind === 'forecast' ? 'Forecast' : 'Typical'}</span><h3>${esc(formatYmd(d.date))}${ymdInTimezone(now, tz) === d.date ? ' <span class="today">Today</span>' : ''}</h3></header>
-      <div class="wx-main"><span class="wx-icon" role="img" aria-label="${esc(info.label)}">${info.icon}</span><div><p class="wx-cond">${esc(info.label)}</p><p class="wx-temps"><b>${d.high}&deg;</b> <span>/ ${d.low}&deg;F</span></p></div></div>
-      <ul class="wx-facts">
-        ${d.precipChance != null ? `<li><b>${d.precipChance}%</b> ${d.kind === 'forecast' ? 'chance of rain' : 'of past years had rain'}</li>` : ''}
-        ${d.wind != null ? `<li><b>${d.wind} mph</b> wind</li>` : ''}
-        ${d.sunrise ? `<li>Sunrise <b>${esc(clock12(d.sunrise))}</b></li>` : ''}
-        ${d.sunset ? `<li>Sunset <b>${esc(clock12(d.sunset))}</b></li>` : ''}
-      </ul>
-      ${
-        events.length
-          ? `<ul class="wx-events">${events
-              .map((e) => {
-                const h = e.timeTbd ? null : tempAtEvent(d, e.start, tz);
-                return `<li><span>${esc(e.timeTbd ? 'Time TBA' : formatTime(e.start, tz))}</span> ${esc(e.name)}${h ? ` <b>${h.temp}&deg;</b> ${esc(weatherCodeInfo(h.code).label.toLowerCase())}` : ''}</li>`;
-              })
-              .join('')}</ul>`
-          : ''
-      }
-      ${tips.length ? `<p class="wx-tip">${esc(tips.join(' '))}</p>` : ''}
-    </article>`;
+    const at = new Date(`${d.date}T12:00:00Z`);
+    const wd = at.toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' });
+    const md = at.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+    const today = ymdInTimezone(now, tz) === d.date;
+    return `<details class="card wx-day" data-day="${esc(d.date)}" data-kind="${d.kind}">
+      <summary aria-label="${esc(`${formatYmd(d.date)}: ${info.label}, high ${d.high}, low ${d.low}${d.precipChance != null ? `, ${d.precipChance}% rain` : ''}. Show details`)}">
+        <span class="wx-date"><b>${esc(wd)}</b> ${esc(md)}${today ? ' <span class="today">Today</span>' : ''}</span>
+        <span class="wx-icon" aria-hidden="true">${info.icon}</span>
+        <span class="wx-cond">${esc(info.label)}</span>
+        <span class="wx-temps"><b>${d.high}&deg;</b><span>/${d.low}&deg;</span></span>
+        ${d.precipChance != null ? `<span class="wx-rain"><b>${d.precipChance}%</b> rain</span>` : '<span class="wx-rain"></span>'}
+      </summary>
+      <div class="wx-more">
+        <header><span class="badge">${d.kind === 'forecast' ? 'Forecast' : 'Typical'}</span><h3>${esc(formatYmd(d.date))}</h3></header>
+        <p class="wx-temps-full"><b>${d.high}&deg;</b> <span>/ ${d.low}&deg;F</span></p>
+        <ul class="wx-facts">
+          ${d.precipChance != null ? `<li><b>${d.precipChance}%</b> ${d.kind === 'forecast' ? 'chance of rain' : 'of past years had rain'}</li>` : ''}
+          ${d.wind != null ? `<li><b>${d.wind} mph</b> wind</li>` : ''}
+          ${d.sunrise ? `<li>Sunrise <b>${esc(clock12(d.sunrise))}</b></li>` : ''}
+          ${d.sunset ? `<li>Sunset <b>${esc(clock12(d.sunset))}</b></li>` : ''}
+        </ul>
+        ${
+          events.length
+            ? `<ul class="wx-events">${events
+                .map((e) => {
+                  const h = e.timeTbd ? null : tempAtEvent(d, e.start, tz);
+                  return `<li><span>${esc(e.timeTbd ? 'Time TBA' : formatTime(e.start, tz))}</span> ${esc(e.name)}${h ? ` <b>${h.temp}&deg;</b> ${esc(weatherCodeInfo(h.code).label.toLowerCase())}` : ''}</li>`;
+                })
+                .join('')}</ul>`
+            : ''
+        }
+        ${tips.length ? `<p class="wx-tip">${esc(tips.join(' '))}</p>` : ''}
+      </div>
+    </details>`;
   };
 
   const missing = state.missing.length ? `<p class="muted note">We couldn&rsquo;t load ${state.missing.map((m) => esc(formatYmd(m))).join(', ')}.</p>` : '';
-  return `${banner}${state.days.map(day).join('')}${missing}
-  <p class="muted note">Weather data by <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo.com</a>. Official forecast: <a href="${esc(nwsUrl(cfg))}" target="_blank" rel="noopener">weather.gov</a></p>`;
+  return `${banner}<div class="wx-days">${state.days.map(day).join('')}</div>${missing}
+  <p class="muted note wx-credit">Tap a day for details &middot; <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo.com</a> &middot; <a href="${esc(nwsUrl(cfg))}" target="_blank" rel="noopener">weather.gov</a></p>`;
 }
 
 export function renderWeather(p: GuestPayload, state: WeatherState, now: Date): string {
   const cfg = p.content.weather;
-  return `${head('Weather', cfg?.place ?? '')}<div id="weather-root">${renderWeatherBody(p, state, now)}</div>`;
+  return `<div class="wx-page">${head('Weather', cfg?.place ?? '')}<div id="weather-root">${renderWeatherBody(p, state, now)}</div></div>`;
 }
 
