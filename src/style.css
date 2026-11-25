@@ -462,3 +462,7 @@ button.where-btn:hover, button.where-btn:focus-visible { border-color: var(--mar
 .swipe > .event:only-child { flex-basis: 100%; }
 .swipe-hint { text-align: center; color: var(--muted); font-size: .8rem; margin: -.4rem 0 .5rem; }
 button.meal-where.link { display: block; background: none; border: 0; padding: 0; font: inherit; font-size: .9rem; color: var(--accent, var(--maroon)); text-decoration: underline; cursor: pointer; text-align: left; min-height: 32px; }
+
+.daystrip button[aria-current='date'] { background: var(--maroon); color: var(--cream); border-color: var(--maroon); box-shadow: 0 0 0 2px var(--cream), 0 0 0 4px var(--maroon); }
+.daystrip button[aria-current='date'] span { color: var(--sand); }
+.daystrip button:focus-visible { outline: 3px solid var(--maroon); outline-offset: 3px; }

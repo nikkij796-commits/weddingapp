@@ -342,6 +342,35 @@ function focusPins(letters: string[], scrollPage: boolean) {
   });
 }
 
+/** Highlights the day chip for the given section id (aria-current marks it for screen readers too). */
+function markDay(id: string | null) {
+  document.querySelectorAll<HTMLElement>('.daystrip [data-jump]').forEach((b) => {
+    if (b.dataset.jump === id) b.setAttribute('aria-current', 'date');
+    else b.removeAttribute('aria-current');
+  });
+}
+
+/** While scrolling, the day under the sticky strip is the selected one. */
+let spyTick = false;
+window.addEventListener(
+  'scroll',
+  () => {
+    if (spyTick) return;
+    spyTick = true;
+    requestAnimationFrame(() => {
+      spyTick = false;
+      const strip = document.querySelector<HTMLElement>('.daystrip');
+      if (!strip) return;
+      const line = strip.getBoundingClientRect().bottom + 24;
+      const ids = [...strip.querySelectorAll<HTMLElement>('[data-jump]')].map((b) => b.dataset.jump!);
+      let current = ids[0];
+      for (const id of ids) if ((document.getElementById(id)?.getBoundingClientRect().top ?? Infinity) <= line) current = id;
+      markDay(current);
+    });
+  },
+  { passive: true },
+);
+
 // One delegated listener for actions inside pages that re-render (jump links, copy code, weather retry, map, calendar).
 root.addEventListener('click', async (ev) => {
   const el = (ev.target as HTMLElement).closest<HTMLElement>('[data-jump],[data-copy],[data-retry],[data-cal],[data-gcal],[data-pin],[data-mapzoom],[data-mapfocus],[data-theme-set],[data-install],[data-install-dismiss]');
@@ -388,6 +417,7 @@ root.addEventListener('click', async (ev) => {
     }
     focusPins(letters, true);
   } else if (el.dataset.jump) {
+    markDay(el.dataset.jump);
     document.getElementById(el.dataset.jump)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   } else if (el.dataset.copy !== undefined) {
     const text = el.dataset.copy;
