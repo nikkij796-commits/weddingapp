@@ -1,6 +1,6 @@
 import type { InstallKind } from '../core/install';
 import { directionsUrl, uberRideUrl } from '../core/links';
-import { areaSpots, mealRows, type MealRow } from '../core/plan';
+import { areaSpots, eventPlace, mealRows, type MealRow } from '../core/plan';
 import { formatDay, formatTime, groupByDay, sortEvents } from '../core/time';
 import type { EventInfo, GuestPayload } from '../core/types';
 import { clock12, forecastOpensOn, formatYmd, nwsUrl, tempAtEvent, tipsFor, weatherCodeInfo, ymdInTimezone } from '../core/weather';
@@ -134,10 +134,12 @@ export function renderMeals(p: GuestPayload): string {
       m.time ?? (m.start ? `${clock12(m.start)}${m.end ? ` &ndash; ${clock12(m.end)}` : ''}` : e ? (e.timeTbd ? 'Time to be announced' : formatTime(e.start, tz)) : '');
     const place = m.place ?? (e ? e.area ?? e.venue : '');
     const context = [e && !m.label.toLowerCase().includes(e.name.toLowerCase()) ? e.name : '', place].filter(Boolean).map(esc).join(' &middot; ');
+    const pins = (m.place ? areaSpots(m.place).map((s) => s.letter) : []).concat(e && !m.place ? eventPlace(p, e).pins : []);
+    const where = pins.length && context ? `<button type="button" class="meal-where link" data-mapfocus="${esc(pins.join(' '))}">${context}</button>` : context ? `<p class="meal-where">${context}</p>` : '';
     return `<article class="card meal" data-meal="${esc(m.eventId ?? m.date ?? '')}" data-label="${esc(m.label)}">
       ${when ? `<p class="time">${m.time ? esc(when) : when}</p>` : ''}
       <h3>${esc(m.label)}${m.jain ? ` <span class="pill ${m.jain}">${JAIN_LABEL[m.jain]}</span>` : ''}</h3>
-      ${context ? `<p class="meal-where">${context}</p>` : ''}
+      ${where}
       ${m.notes ? `<p class="muted">${esc(m.notes)}</p>` : ''}
     </article>`;
   };

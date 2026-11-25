@@ -1,5 +1,5 @@
 import { directionsUrl, uberRideUrl } from '../core/links';
-import { areaSpots, nowNext, relativeDay } from '../core/plan';
+import { eventPlace, nowNext, relativeDay } from '../core/plan';
 import { firstName } from '../core/matching';
 import { clock12, ymdInTimezone } from '../core/weather';
 import { countdown, currentOrNext, eventStatus, formatDay, formatTime, groupByDay } from '../core/time';
@@ -114,15 +114,7 @@ export function renderNowNext(p: GuestPayload, now: Date): string {
   return `<section class="nownext" aria-label="Now and next">${rows.join('')}</section>`;
 }
 
-/** Info for rendering one event: is it at the main resort, and does it have pins on the resort map? */
-export function eventPlace(p: GuestPayload, e: EventInfo) {
-  const map = p.content.map as GuestPayload['content']['map'] | undefined; // tolerate an old saved copy
-  const home = map?.places?.[0]?.name.toLowerCase() ?? '';
-  const onSite = !!home && e.venue.toLowerCase() === home;
-  const letters = new Set(map?.spots?.map((s) => s.letter) ?? []);
-  const pins = onSite && map?.imagePath ? areaSpots(e.area).filter((s) => letters.has(s.letter)).map((s) => s.letter) : [];
-  return { onSite, pins };
-}
+export { eventPlace };
 
 export function renderEvent(e: EventInfo, tz: string, now: Date, p?: GuestPayload): string {
   const status = eventStatus(e, now);
@@ -137,6 +129,7 @@ export function renderEvent(e: EventInfo, tz: string, now: Date, p?: GuestPayloa
     !onSite && e.address ? `<a class="chip" href="${esc(directionsUrl(e))}" target="_blank" rel="noopener">Directions</a>` : '',
     !onSite && e.address ? `<a class="chip" data-uber href="${esc(uberRideUrl({ name: e.venue, address: e.address }))}" target="_blank" rel="noopener">Uber</a>` : '',
     e.timeTbd ? '' : `<button type="button" class="chip" data-cal="${esc(e.id)}">Add to calendar</button>`,
+    e.timeTbd ? '' : `<button type="button" class="chip" data-gcal="${esc(e.id)}">Google Calendar</button>`,
   ].filter(Boolean);
   return `
   <article class="event ${status}" data-event="${esc(e.id)}" id="ev-${esc(e.id)}">
@@ -180,7 +173,7 @@ export function renderWeekend(p: GuestPayload, now: Date): string {
   ${
     days.length
       ? dayStrip(days.map(ymd), 'day') +
-        days.map((d) => `<section class="day" id="day-${ymd(d)}"${d.day === today ? ' data-today' : ''}><h2>${esc(d.day)}${d.day === today ? ' <span class="today">Today</span>' : ''}</h2>${d.events.map((e) => renderEvent(e, tz, now, p)).join('')}</section>`).join('')
+        days.map((d) => `<section class="day" id="day-${ymd(d)}"${d.day === today ? ' data-today' : ''}><h2>${esc(d.day)}${d.day === today ? ' <span class="today">Today</span>' : ''}</h2>${d.events.length > 1 ? `<p class="swipe-hint" aria-hidden="true">Swipe for ${d.events.length} events &rarr;</p>` : ''}<div class="swipe" role="group" aria-label="${esc(d.day)} events" tabindex="0">${d.events.map((e) => renderEvent(e, tz, now, p)).join('')}</div></section>`).join('')
       : '<p class="empty">Your schedule will appear here soon.</p>'
   }`;
 }

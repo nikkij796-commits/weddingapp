@@ -454,3 +454,11 @@ button.where-btn:hover, button.where-btn:focus-visible { border-color: var(--mar
 :root[data-theme='dark'] .install { background: #231913; border-color: #3b2a1f; border-left-color: #e8a020; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme='light']) .install { background: #231913; border-color: #3b2a1f; border-left-color: #e8a020; } }
 
+
+/* Events: swipe sideways through a day's cards */
+.swipe { display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; margin: 0 -16px; padding: 4px 16px 12px; scrollbar-width: none; }
+.swipe::-webkit-scrollbar { display: none; }
+.swipe > .event { flex: 0 0 88%; scroll-snap-align: center; margin: 0; }
+.swipe > .event:only-child { flex-basis: 100%; }
+.swipe-hint { text-align: center; color: var(--muted); font-size: .8rem; margin: -.4rem 0 .5rem; }
+button.meal-where.link { display: block; background: none; border: 0; padding: 0; font: inherit; font-size: .9rem; color: var(--accent, var(--maroon)); text-decoration: underline; cursor: pointer; text-align: left; min-height: 32px; }

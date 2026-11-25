@@ -94,7 +94,7 @@ describe('Meals', () => {
   it('shows where: the meal\'s own place, else the event\'s lawn/hall, else the venue', () => {
     const h = renderMeals(alex());
     expect(card(h, 'Afternoon snacks')).toContain('Main Lawn');
-    expect(card(h, 'Welcome drinks &amp; bites')).toContain('<p class="meal-where">Main Lawn (L)</p>'); // event name dropped: the title already says it
+    expect(card(h, 'Welcome drinks &amp; bites')).toContain('meal-where link" data-mapfocus="L">Main Lawn (L)</button>'); // event name dropped: the title already says it
     expect(card(h, 'Cocktail hour')).toContain('Cocktail Hour &amp; Reception &middot; Grand Ballroom');
     expect(card(h, 'Farewell brunch')).toContain('The Garden Terrace');
   });
@@ -102,7 +102,7 @@ describe('Meals', () => {
     const h = renderMeals(alex());
     expect(card(h, 'Dinner')).toContain('<span class="pill full">Fully Jain</span>');
     expect(card(h, 'Welcome drinks &amp; bites')).toContain('<span class="pill options">Jain options</span>');
-    expect(card(h, 'Farewell brunch')).not.toContain('pill');
+    expect(card(h, 'Farewell brunch')).toContain('<span class="pill options">Jain options</span>');
   });
   it('has no separate key for the labels: the pills speak for themselves', () => {
     expect(renderMeals(alex())).not.toContain('jain-legend');
@@ -369,7 +369,7 @@ describe('event area shows up everywhere an event location does', () => {
     const card = (id: string) => weekend.slice(weekend.indexOf(`data-event="${id}"`), weekend.indexOf('</article>', weekend.indexOf(`data-event="${id}"`)));
     expect(card('welcome')).toContain('<span class="area">Main Lawn (L)</span>');
     expect(card('ceremony')).not.toContain('class="area"');
-    expect(renderMeals(alex())).toContain('meal-where">Main Lawn (L)<');
+    expect(renderMeals(alex())).toContain('meal-where link" data-mapfocus="L">Main Lawn (L)<');
   });
 });
 

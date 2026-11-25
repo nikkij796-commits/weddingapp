@@ -82,3 +82,13 @@ export function areaSpots(area: string | undefined): { name: string; letter: str
     .filter((m): m is RegExpMatchArray => !!m)
     .map((m) => ({ name: m[1], letter: m[2] }));
 }
+
+/** Info for rendering one event: is it at the main resort, and does it have pins on the resort map? */
+export function eventPlace(p: GuestPayload, e: EventInfo) {
+  const map = p.content.map as GuestPayload['content']['map'] | undefined; // tolerate an old saved copy
+  const home = map?.places?.[0]?.name.toLowerCase() ?? '';
+  const onSite = !!home && e.venue.toLowerCase() === home;
+  const letters = new Set(map?.spots?.map((s) => s.letter) ?? []);
+  const pins = onSite && map?.imagePath ? areaSpots(e.area).filter((s) => letters.has(s.letter)).map((s) => s.letter) : [];
+  return { onSite, pins };
+}

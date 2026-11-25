@@ -5,7 +5,7 @@ import '@fontsource/cormorant-garamond/latin-600.css';
 import '@fontsource/jost/latin-400.css';
 import '@fontsource/jost/latin-500.css';
 import './style.css';
-import { buildIcs, googleCalendarUrl, isAppleDevice } from './core/links';
+import { buildIcs, googleCalendarUrl } from './core/links';
 import type { GuestPayload } from './core/types';
 import { normalizePayload } from './core/payload';
 import { SESSION_VERSION, clearSession, loadSession, refreshSession, saveSession, type Session, type Store } from './core/session';
@@ -287,16 +287,12 @@ async function refreshWeather(force = false) {
   paintWeather(p);
 }
 
-/** One event: Apple devices get a calendar file (opens Calendar), others Google Calendar. The whole weekend is always a file. */
+/** Downloads a calendar file (.ics) for one event or the whole weekend. Google Calendar has its own button. */
 function addToCalendar(id: string) {
   const p = payload;
   if (!p) return;
   const events = id === 'all' ? p.events.filter((e) => !e.timeTbd) : p.events.filter((e) => e.id === id);
   if (!events.length) return;
-  if (id !== 'all' && !isAppleDevice()) {
-    window.open(googleCalendarUrl(events[0]), '_blank', 'noopener');
-    return;
-  }
   const name = id === 'all' ? `${p.content.coupleNames} wedding weekend` : events[0].name;
   const blob = new Blob([buildIcs(events, name)], { type: 'text/calendar' });
   const a = document.createElement('a');
@@ -348,7 +344,7 @@ function focusPins(letters: string[], scrollPage: boolean) {
 
 // One delegated listener for actions inside pages that re-render (jump links, copy code, weather retry, map, calendar).
 root.addEventListener('click', async (ev) => {
-  const el = (ev.target as HTMLElement).closest<HTMLElement>('[data-jump],[data-copy],[data-retry],[data-cal],[data-pin],[data-mapzoom],[data-mapfocus],[data-theme-set],[data-install],[data-install-dismiss]');
+  const el = (ev.target as HTMLElement).closest<HTMLElement>('[data-jump],[data-copy],[data-retry],[data-cal],[data-gcal],[data-pin],[data-mapzoom],[data-mapfocus],[data-theme-set],[data-install],[data-install-dismiss]');
   if (!el) return;
   if (el.hasAttribute('data-install')) {
     const p = installPrompt;
@@ -374,6 +370,9 @@ root.addEventListener('click', async (ev) => {
       /* private mode: still applies for this visit */
     }
     applyTheme(t);
+  } else if (el.dataset.gcal) {
+    const e = payload?.events.find((x) => x.id === el.dataset.gcal);
+    if (e) window.open(googleCalendarUrl(e), '_blank', 'noopener');
   } else if (el.dataset.cal) {
     addToCalendar(el.dataset.cal);
   } else if (el.dataset.pin) {

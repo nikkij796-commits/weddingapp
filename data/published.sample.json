@@ -69,7 +69,8 @@
         },
         {
           "eventId": "brunch",
-          "label": "Farewell brunch"
+          "label": "Farewell brunch",
+          "jain": "options"
         }
       ]
     },
